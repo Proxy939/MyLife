@@ -8,6 +8,7 @@ import RecapCard from './components/RecapCard';
 import SemanticSearch from './pages/SemanticSearch';
 import MemoryChat from './pages/MemoryChat';
 import LockScreen from './pages/LockScreen';
+import Analytics from './pages/Analytics';
 import { useState, useEffect } from 'react';
 
 function ProtectedRoute({ children, isLocked }) {
@@ -63,6 +64,7 @@ function AppContent() {
                     >
                         <Routes>
                             <Route path="/" element={<Timeline month={selectedMonth} />} />
+                            <Route path="/analytics" element={<Analytics />} />
                             <Route path="/add" element={<AddMemory />} />
                             <Route path="/memory/:id" element={<MemoryDetail />} />
                             <Route path="/search" element={<SemanticSearch />} />

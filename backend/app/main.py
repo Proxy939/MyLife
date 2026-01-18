@@ -19,7 +19,6 @@ def startup_event():
     finally:
         db.close()
 
-
 # CORS
 app.add_middleware(
     CORSMiddleware,

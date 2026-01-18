@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
+from datetime import datetime
 from .. import schemas
 from ..services import recap_service
 from ..database import SessionLocal
@@ -18,10 +19,13 @@ def get_monthly_recap(
     month: str = Query(..., regex="^\\d{4}-\\d{2}$"),
     db: Session = Depends(get_db)
 ):
+    # Strict Month Validation
     try:
-        # Note: CRUD or Service handles logic. 
-        # Requirement: "GET /recap/monthly?month=YYYY-MM must also use that month"
-        # Since regex enforces format, we are good on format.
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid month value (must be YYYY-MM)")
+
+    try:
         recap = recap_service.generate_monthly_recap(db, month)
         return {"success": True, "data": recap}
     except Exception as e:

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, desc
-from datetime import datetime, date
+from datetime import datetime
 from . import models, schemas
 
 # Memories
@@ -11,18 +11,13 @@ def get_memories(db: Session, skip: int = 0, limit: int = 100, month: str = None
     query = db.query(models.Memory)
     
     if month:
-        # month format YYYY-MM
+        # month is expected to be validated "YYYY-MM" by router
         try:
             target_date = datetime.strptime(month, "%Y-%m")
             query = query.filter(extract('year', models.Memory.created_at) == target_date.year)
             query = query.filter(extract('month', models.Memory.created_at) == target_date.month)
         except ValueError:
-            # If invalid month is passed to CRUD, we effectively return nothing or raise, 
-            # but validation ideally happens at Router level. 
-            # If router passes invalid string, strptime will raise ValueError.
-            # We should probably let it bubble up or handle gracefully?
-            # Router regex handles format, but logically valid month?
-            # Let's assume Router regex catches format.
+            # Should be caught by router validation, but safe fallback
             return []
 
     return query.order_by(desc(models.Memory.created_at)).offset(skip).limit(limit).all()
@@ -43,13 +38,8 @@ def update_memory(db: Session, memory_id: int, memory: schemas.MemoryUpdate):
     for key, value in update_data.items():
         setattr(db_memory, key, value)
     
-    # updated_at is handled by onupdate=func.now() in model, BUT
-    # SQLAlchemy might not trigger it if we set python attributes. 
-    # Actually `onupdate` works at DB level when UPDATE statement runs.
-    # Safe to rely on DB or force it here? DB-side is safer if supported.
-    # SQLite supports triggers, but SQLAlchemy implementation varies.
-    # Let's explicitly set it to be safe for "updated_at must update properly" requirement.
-    db_memory.updated_at = datetime.utcnow() # or func.now() but that's SQL expression
+    # explicit update time
+    db_memory.updated_at = datetime.utcnow()
     
     db.commit()
     db.refresh(db_memory)
@@ -66,13 +56,7 @@ def delete_memory(db: Session, memory_id: int):
 def get_settings(db: Session):
     settings = db.query(models.AppSettings).filter(models.AppSettings.id == 1).first()
     if not settings:
-        # Auto-create if missing (redundant check if we do it on startup, but good safety)
-        settings = models.AppSettings(
-            id=1,
-            ai_provider="auto",
-            local_model="none",
-            openai_enabled=False
-        )
+        settings = models.AppSettings(id=1)
         db.add(settings)
         db.commit()
         db.refresh(settings)

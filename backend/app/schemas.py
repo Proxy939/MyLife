@@ -1,8 +1,9 @@
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
-from typing import Optional, List
+from pydantic import BaseModel, Field, field_validator, ConfigDict
+from typing import Optional, List, Generic, TypeVar, Any
 from datetime import datetime
 from enum import Enum
 
+# --- Enums ---
 class MoodEnum(str, Enum):
     neutral = "neutral"
     happy = "happy"
@@ -11,6 +12,15 @@ class MoodEnum(str, Enum):
     excited = "excited"
     calm = "calm"
 
+# --- Shared wrapper ---
+T = TypeVar('T')
+
+class APIResponse(BaseModel, Generic[T]):
+    success: bool
+    data: Optional[T] = None
+    error: Optional[dict] = None # Expecting {"message": "...", "details": "..."} or null
+
+# --- Memory Schemas ---
 class MemoryBase(BaseModel):
     title: str = Field(..., min_length=3)
     note: str = Field(..., min_length=5)
@@ -33,6 +43,7 @@ class MemoryRead(MemoryBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+# --- Settings Schemas ---
 class AppSettingsBase(BaseModel):
     ai_provider: str = "auto"
     local_model: str = "none"
@@ -52,34 +63,15 @@ class AppSettingsUpdate(AppSettingsBase):
     def validate_local_model(cls, v: str) -> str:
         return v
 
-    @model_validator(mode='after')
-    def check_local_model(self) -> 'AppSettingsUpdate':
-        provider = self.ai_provider
-        local_model = self.local_model
-        
-        if provider == "local" and (not local_model or local_model == "none"):
-            raise ValueError("Local provider requires a valid local_model name (not 'none')")
-        
-        return self
-
 class AppSettingsRead(AppSettingsBase):
     id: int
 
     model_config = ConfigDict(from_attributes=True)
 
+# --- Recap Schemas ---
 class MonthlyRecapResponse(BaseModel):
     month: str
     total_memories: int
     highlights: List[str]
     mood_hint: str
     summary: str
-
-# Standard Response Wrapper
-from typing import Generic, TypeVar, Any
-T = TypeVar('T')
-
-class APIResponse(BaseModel, Generic[T]):
-    success: bool
-    data: Optional[T] = None
-    error: Optional[Any] = None
-

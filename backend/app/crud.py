@@ -24,6 +24,8 @@ def get_memories(db: Session, skip: int = 0, limit: int = 100, month: str = None
 
 import json
 
+from .services.vector_store import vector_store
+
 def create_memory(db: Session, memory: schemas.MemoryCreate):
     data = memory.model_dump()
     # Serialize photos to JSON string
@@ -34,6 +36,13 @@ def create_memory(db: Session, memory: schemas.MemoryCreate):
     db.add(db_memory)
     db.commit()
     db.refresh(db_memory)
+    
+    # Sync with Vector Store
+    try:
+        vector_store.add_or_update(db_memory)
+    except Exception as e:
+        print(f"Vector store update failed: {e}")
+
     return db_memory
 
 def update_memory(db: Session, memory_id: int, memory: schemas.MemoryUpdate):
@@ -55,6 +64,13 @@ def update_memory(db: Session, memory_id: int, memory: schemas.MemoryUpdate):
     
     db.commit()
     db.refresh(db_memory)
+
+    # Sync with Vector Store
+    try:
+        vector_store.add_or_update(db_memory)
+    except Exception as e:
+        print(f"Vector store update failed: {e}")
+
     return db_memory
 
 def delete_memory(db: Session, memory_id: int):
@@ -62,6 +78,11 @@ def delete_memory(db: Session, memory_id: int):
     if db_memory:
         db.delete(db_memory)
         db.commit()
+        # Sync
+        try:
+             vector_store.remove(memory_id)
+        except Exception as e:
+             print(f"Vector store update failed: {e}")
     return db_memory
 
 # Settings

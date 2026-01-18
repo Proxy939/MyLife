@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import memories, recap, settings, media
+from .routers import memories, recap, settings, media, ai
 from .database import engine, Base, SessionLocal
 from .config import settings as app_settings
-from . import crud
+from . import crud, models
+from .services.vector_store import vector_store
 import os
 
 # Create tables
@@ -13,10 +14,13 @@ app = FastAPI(title=app_settings.APP_NAME)
 
 @app.on_event("startup")
 def startup_event():
-    # Ensure AppSettings exists
     db = SessionLocal()
     try:
+        # Ensure AppSettings exists
         crud.get_settings(db)
+        # Initialize Embeddings (Offline AI)
+        all_memories = db.query(models.Memory).all()
+        vector_store.initialize(all_memories)
     finally:
         db.close()
     
@@ -37,6 +41,7 @@ app.include_router(memories.router)
 app.include_router(recap.router)
 app.include_router(settings.router)
 app.include_router(media.router)
+app.include_router(ai.router)
 
 @app.get("/health")
 def health_check():

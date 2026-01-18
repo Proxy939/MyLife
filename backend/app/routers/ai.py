@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from .. import crud, models, schemas
 from ..database import SessionLocal
 from ..services.vector_store import vector_store
 from ..services.ai_router import ai_router_service
+from ..services.insights_service import insights_service
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -37,6 +38,17 @@ class ChatResponse(BaseModel):
 class ModelsResponse(BaseModel):
     installed: List[str]
     ollama_running: bool
+
+class TagCount(BaseModel):
+    tag: str
+    count: int
+
+class InsightsResponse(BaseModel):
+    summary: str
+    patterns: List[str]
+    suggestions: List[str]
+    focus_tags: List[TagCount]
+    mood_breakdown: Dict[str, int]
 
 # --- Endpoints ---
 
@@ -72,5 +84,14 @@ def memory_chat(req: ChatRequest, db: Session = Depends(get_db)):
     try:
         response = ai_router_service.chat(req.message, db)
         return {"success": True, "data": response}
+    except Exception as e:
+        return {"success": False, "error": {"message": str(e)}}
+
+@router.get("/insights", response_model=schemas.APIResponse[InsightsResponse])
+def get_insights(month: Optional[str] = None, db: Session = Depends(get_db)):
+    """Get AI-powered or rule-based insights for a specific period"""
+    try:
+        data = insights_service.get_insights(db, month)
+        return {"success": True, "data": data}
     except Exception as e:
         return {"success": False, "error": {"message": str(e)}}

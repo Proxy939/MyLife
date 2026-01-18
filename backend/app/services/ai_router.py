@@ -1,6 +1,7 @@
 import requests
 import logging
 import os
+import json
 from openai import OpenAI
 from sqlalchemy.orm import Session
 from .. import crud, models
@@ -102,7 +103,7 @@ class AIRouterService:
             context_str += f"- [{date_str}] {m.title} (Mood: {m.mood}): {m.note}\n"
 
         response = self.openai_client.chat.completions.create(
-            model="gpt-3.5-turbo", # Default to cost-effective model, or make configurable later
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful and empathetic AI assistant for a personal journal. Summarize insights based on the user's memories provided."},
                 {"role": "user", "content": f"Context Memories:\n{context_str}\n\nUser Question: {message}"}
@@ -115,7 +116,6 @@ class AIRouterService:
         settings = crud.get_settings(db)
         
         # 1. Retrieve Context
-        # OpenAI/Local get 5, Auto gets 3
         top_k = 3 if settings.ai_provider == "auto" else 5
         search_results = vector_store.search(message, top_k=top_k)
         
@@ -138,7 +138,6 @@ class AIRouterService:
                  reply = self._generate_auto_reply(message, memories)
         except Exception as e:
             logger.error(f"AI Provider {settings.ai_provider} failed: {e}")
-            # Fallback
             reply = self._generate_auto_reply(message, memories)
 
         return {"reply": reply, "memory_refs": memory_refs}
@@ -152,7 +151,6 @@ class AIRouterService:
             return "No memories recorded this month."
 
         context_str = ""
-        # Limit to 30 memories to fit token context reasonable
         for m in memories[:30]: 
             date_str = m.created_at.strftime("%d")
             context_str += f"- Day {date_str}: {m.title} ({m.mood}): {m.note[:100]}...\n"
@@ -171,5 +169,79 @@ class AIRouterService:
             max_tokens=200
         )
         return response.choices[0].message.content
+
+    def analyze_insights(self, memories: list, provider: str, local_model: str):
+        """
+        Generate deeper insights (Summary, Patterns, Suggestions) using LLM.
+        Returns a dict with keys: summary, customs_patterns (list), custom_suggestions (list)
+        """
+        if not memories:
+            return None
+
+        context_str = ""
+        # Provide more context for insights, maybe up to 40 entries
+        for m in memories[:40]:
+            date_str = m.created_at.strftime("%Y-%m-%d")
+            context_str += f"- {date_str}: {m.title} (Mood: {m.mood}, Tags: {m.tags}). Note: {m.note[:150]}\n"
+
+        system_prompt = (
+            "You are an analytical but empathetic life coach AI. Analyze the user's journal entries. "
+            "Output JSON with 3 fields: 'summary' (string), 'patterns' (list of strings), 'suggestions' (list of strings). "
+            "Summary: 2 sentences overview of their month/period. "
+            "Patterns: 3 key recurring behaviors or mood triggers. "
+            "Suggestions: 3 actionable tips based on the patterns. "
+            "Do NOT include markdown formatting, just raw JSON."
+        )
+
+        user_prompt = f"Journal Data:\n{context_str}\n\nGenerate JSON insights."
+
+        try:
+            response_text = ""
+            if provider == 'openai':
+                if not self.openai_client: raise Exception("No OpenAI client")
+                completion = self.openai_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    response_format={"type": "json_object"},
+                    max_tokens=500
+                )
+                response_text = completion.choices[0].message.content
+
+            elif provider == 'local':
+                 payload = {
+                    "model": local_model,
+                    "prompt": user_prompt,
+                    "system": system_prompt + " RETURN ONLY JSON.",
+                    "stream": False,
+                    "format": "json" 
+                }
+                 res = requests.post(f"{OLLAMA_API_URL}/api/generate", json=payload, timeout=45)
+                 if res.status_code == 200:
+                     response_text = res.json().get("response", "")
+                 else:
+                     raise Exception("Ollama failed")
+            
+            # Parse JSON
+            try:
+                data = json.loads(response_text)
+                return {
+                    "summary": data.get("summary", ""),
+                    "patterns": data.get("patterns", []),
+                    "suggestions": data.get("suggestions", [])
+                }
+            except:
+                # Fallback if JSON parsing fails
+                return {
+                    "summary": response_text[:200] + "...",
+                    "patterns": [],
+                    "suggestions": []
+                }
+
+        except Exception as e:
+            logger.error(f"Insight Generation Failed ({provider}): {e}")
+            return None
 
 ai_router_service = AIRouterService()

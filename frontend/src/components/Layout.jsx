@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2 } from 'lucide-react';
+import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export default function Layout({ children, onMonthChange, selectedMonth, rightPanel }) {
@@ -50,6 +50,9 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
                     </Link>
                     <Link to="/analytics" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/analytics')}`}>
                         <BarChart2 size={18} /> Analytics
+                    </Link>
+                    <Link to="/insights" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/insights')}`}>
+                        <Brain size={18} /> Insights
                     </Link>
                     <Link to="/add" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/add')}`}>
                         <PlusCircle size={18} /> Add Memory

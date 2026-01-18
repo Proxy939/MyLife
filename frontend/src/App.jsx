@@ -5,6 +5,8 @@ import Timeline from './pages/Timeline';
 import AddMemory from './pages/AddMemory';
 import MemoryDetail from './pages/MemoryDetail';
 import Settings from './pages/Settings';
+import SemanticSearch from './pages/SemanticSearch';
+import MemoryChat from './pages/MemoryChat';
 import RecapCard from './components/RecapCard';
 
 function AppLayout() {
@@ -38,6 +40,8 @@ function App() {
                     <Route path="/add" element={<AddMemory />} />
                     <Route path="/memory/:id" element={<MemoryDetail />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/search" element={<SemanticSearch />} />
+                    <Route path="/chat" element={<MemoryChat />} />
                 </Route>
             </Routes>
         </BrowserRouter>

@@ -21,7 +21,13 @@ export async function apiRequest(endpoint, options = {}) {
 
     try {
         const response = await fetch(url, config);
-        // 404 might return proper JSON {success: false}, so we parse first.
+
+        // Handle 404 specifically for feature detection (optional UI logic often needs to know this)
+        if (response.status === 404) {
+            throw new Error("404: Endpoint not found");
+        }
+
+        // Attempt to parse JSON
         let data;
         try {
             data = await response.json();
@@ -30,8 +36,8 @@ export async function apiRequest(endpoint, options = {}) {
             throw err;
         }
 
-        if (!data.success) {
-            // Backend returned logic error
+        // Check application-level success flag
+        if (data && data.success === false) {
             const msg = data.error?.message || "Unknown API error";
             throw new Error(msg);
         }
@@ -39,7 +45,7 @@ export async function apiRequest(endpoint, options = {}) {
         return data.data;
 
     } catch (err) {
-        console.error(`API Call Failed (${endpoint}):`, err);
+        console.warn(`API Call Failed (${endpoint}):`, err);
         throw err;
     }
 }

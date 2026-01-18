@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, PlusCircle, Settings, Calendar, LayoutGrid } from 'lucide-react';
+import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare } from 'lucide-react';
 
 export default function Layout({ children, onMonthChange, selectedMonth, rightPanel }) {
     const location = useLocation();
@@ -21,6 +21,17 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
                     <Link to="/add" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/add')}`}>
                         <PlusCircle size={18} /> Add Memory
                     </Link>
+
+                    <div className="pt-4 pb-2">
+                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">AI Tools</div>
+                        <Link to="/search" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/search')}`}>
+                            <Search size={18} /> Semantic Search
+                        </Link>
+                        <Link to="/chat" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/chat')}`}>
+                            <MessageSquare size={18} /> Memory Chat
+                        </Link>
+                    </div>
+
                     <Link to="/settings" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/settings')}`}>
                         <Settings size={18} /> AI Settings
                     </Link>

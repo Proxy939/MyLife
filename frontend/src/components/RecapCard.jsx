@@ -1,29 +1,45 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { Sparkles, TrendingUp, Hash } from 'lucide-react';
+import { Sparkles, TrendingUp } from 'lucide-react';
+import StatusMessage from './StatusMessage';
 
 export default function RecapCard({ month }) {
     const [recap, setRecap] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    async function fetchRecap() {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await api.get(`/recap/monthly?month=${month}`);
+            setRecap(data);
+        } catch (err) {
+            console.error("Recap fetch error", err);
+            // Don't show full error UI for recap sidebar, just fallback or simple message
+            setError("AI Recap unavailable.");
+            setRecap(null);
+        } finally {
+            setLoading(false);
+        }
+    }
 
     useEffect(() => {
-        async function fetchRecap() {
-            setLoading(true);
-            try {
-                const data = await api.get(`/recap/monthly?month=${month}`);
-                setRecap(data);
-            } catch (err) {
-                console.error("Recap fetch error", err);
-                setRecap(null);
-            } finally {
-                setLoading(false);
-            }
-        }
         if (month) fetchRecap();
     }, [month]);
 
-    if (loading) return <div className="animate-pulse h-40 bg-os-hover rounded-xl"></div>;
-    if (!recap) return <div className="text-gray-500 text-center py-10">No recap available via Auto Mode.</div>;
+    if (loading) return (
+        <div className="bg-os-panel border border-os-hover rounded-2xl p-5 shadow-lg h-60 flex items-center justify-center">
+            <StatusMessage loading loadingText="Generating AI Recap..." />
+        </div>
+    );
+
+    if (error || !recap) return (
+        <div className="bg-os-panel border border-os-hover rounded-2xl p-5 shadow-lg text-center">
+            <div className="text-gray-500 mb-2">No recap available</div>
+            <button onClick={fetchRecap} className="text-xs text-os-accent hover:underline">Retry</button>
+        </div>
+    );
 
     return (
         <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-2xl p-5 shadow-lg backdrop-blur-sm">

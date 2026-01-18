@@ -10,7 +10,10 @@ import MemoryChat from './pages/MemoryChat';
 import LockScreen from './pages/LockScreen';
 import Analytics from './pages/Analytics';
 import Insights from './pages/Insights';
+import SystemStatus from './pages/SystemStatus';
+import Notifications from './pages/Notifications';
 import { useState, useEffect } from 'react';
+import { NotificationProvider } from './context/NotificationContext';
 
 function ProtectedRoute({ children, isLocked }) {
     if (isLocked) {
@@ -67,6 +70,8 @@ function AppContent() {
                             <Route path="/" element={<Timeline month={selectedMonth} />} />
                             <Route path="/analytics" element={<Analytics />} />
                             <Route path="/insights" element={<Insights />} />
+                            <Route path="/system" element={<SystemStatus />} />
+                            <Route path="/notifications" element={<Notifications />} />
                             <Route path="/add" element={<AddMemory />} />
                             <Route path="/memory/:id" element={<MemoryDetail />} />
                             <Route path="/search" element={<SemanticSearch />} />
@@ -83,7 +88,9 @@ function AppContent() {
 function App() {
     return (
         <Router>
-            <AppContent />
+            <NotificationProvider>
+                <AppContent />
+            </NotificationProvider>
         </Router>
     );
 }

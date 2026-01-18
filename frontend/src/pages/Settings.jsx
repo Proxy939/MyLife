@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import StatusMessage from '../components/StatusMessage';
 import { Cpu, Server, Save, Download, Upload, AlertTriangle, Archive, Shield, Lock, Key } from 'lucide-react';
+import { useNotifications } from '../context/NotificationContext';
 
 // Basic Hash Helper (Duplicate of LockScreen logic - ideally util)
 const hashPin = (pin) => {
@@ -15,6 +16,7 @@ const hashPin = (pin) => {
 };
 
 export default function Settings() {
+    const { addNotification } = useNotifications();
     const [settings, setSettings] = useState({
         ai_provider: 'auto',
         local_model: 'none',
@@ -62,6 +64,7 @@ export default function Settings() {
         try {
             await api.put('/settings/ai', settings);
             setStatus({ type: 'success', text: 'Settings saved successfully!' });
+            addNotification('AI Settings updated successfully.', 'success');
         } catch (err) {
             setStatus({ type: 'error', text: err.message });
         } finally {
@@ -82,17 +85,18 @@ export default function Settings() {
         setPinMode('change');
         setPinInput('');
         setStatus({ type: 'success', text: "App Lock Initiated. PIN Set." });
+        addNotification('App Lock PIN Updated.', 'info');
     };
 
     const handleToggleLock = (e) => {
         const enabled = e.target.checked;
         if (enabled && pinMode === 'set') {
-            // Need to set PIN first
             setStatus({ type: 'error', text: "Please set a PIN below first." });
             return;
         }
         setAppLockEnabled(enabled);
         localStorage.setItem('mylife_app_lock_enabled', enabled);
+        addNotification(`App Lock ${enabled ? 'Enabled' : 'Disabled'}.`, 'info');
     };
 
 
@@ -121,9 +125,12 @@ export default function Settings() {
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
+
             setBackupStatus(null);
+            addNotification(`Backup downloaded successfully (${ext}).`, 'success');
         } catch (err) {
             setBackupStatus({ type: 'error', text: "Backup failed: " + err.message });
+            addNotification('Backup download failed.', 'error');
         }
     };
 
@@ -142,11 +149,13 @@ export default function Settings() {
         try {
             await api.post('/backup/restore', formData);
             setBackupStatus({ type: 'success', text: 'Restore successful! Please refresh the page.' });
+            addNotification('System Restore completed successfully.', 'success');
             setRestoreFile(null);
             setConfirmRestore(false);
             setRestorePin('');
         } catch (err) {
             setBackupStatus({ type: 'error', text: "Restore failed: " + err.message });
+            addNotification(`Restore failed: ${err.message}`, 'error');
         } finally {
             setIsRestoring(false);
         }

@@ -1,9 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain } from 'lucide-react';
+import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain, Bell, Server } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useNotifications } from '../context/NotificationContext';
 
 export default function Layout({ children, onMonthChange, selectedMonth, rightPanel }) {
     const location = useLocation();
+    const { unreadCount } = useNotifications();
     const isActive = (path) => location.pathname === path ? "bg-os-accent text-white" : "text-gray-400 hover:text-white hover:bg-os-hover";
 
     const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -25,10 +27,10 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
         <div className="flex h-screen w-full bg-os-bg overflow-hidden text-sm">
             {/* Sidebar */}
             <aside className="w-64 bg-os-panel border-r border-os-hover flex flex-col p-4 space-y-4">
-                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 mb-2 flex items-center gap-2">
+                <Link to="/" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 mb-2 flex items-center gap-2 hover:opacity-80 transition-opacity">
                     <LayoutGrid size={24} className="text-blue-400" />
                     MyLife
-                </h1>
+                </Link>
 
                 {/* Offline Indicator */}
                 {!isOnline && (
@@ -54,6 +56,9 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
                     <Link to="/insights" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/insights')}`}>
                         <Brain size={18} /> Insights
                     </Link>
+
+                    <div className="my-2 border-t border-os-hover"></div>
+
                     <Link to="/add" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/add')}`}>
                         <PlusCircle size={18} /> Add Memory
                     </Link>
@@ -68,9 +73,22 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
                         </Link>
                     </div>
 
-                    <Link to="/settings" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/settings')}`}>
-                        <Settings size={18} /> AI Settings
-                    </Link>
+                    <div className="pt-2 pb-2">
+                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">System</div>
+                        <Link to="/notifications" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/notifications')}`}>
+                            <div className="relative">
+                                <Bell size={18} />
+                                {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-os-panel"></span>}
+                            </div>
+                            Notifications
+                        </Link>
+                        <Link to="/system" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/system')}`}>
+                            <Server size={18} /> System Status
+                        </Link>
+                        <Link to="/settings" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/settings')}`}>
+                            <Settings size={18} /> Configuration
+                        </Link>
+                    </div>
                 </nav>
 
                 {/* Month Filter */}

@@ -18,9 +18,11 @@ def startup_event():
     try:
         # Ensure AppSettings exists
         crud.get_settings(db)
+        
         # Initialize Embeddings (Offline AI)
         all_memories = db.query(models.Memory).all()
         vector_store.initialize(all_memories)
+        
     finally:
         db.close()
     

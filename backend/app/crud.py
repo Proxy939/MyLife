@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, desc
 from datetime import datetime
+import json
 from . import models, schemas
+from .services.vector_store import vector_store
 
 # Memories
 def get_memory(db: Session, memory_id: int):
@@ -11,24 +13,17 @@ def get_memories(db: Session, skip: int = 0, limit: int = 100, month: str = None
     query = db.query(models.Memory)
     
     if month:
-        # month is expected to be validated "YYYY-MM" by router
         try:
             target_date = datetime.strptime(month, "%Y-%m")
             query = query.filter(extract('year', models.Memory.created_at) == target_date.year)
             query = query.filter(extract('month', models.Memory.created_at) == target_date.month)
         except ValueError:
-            # Should be caught by router validation, but safe fallback
             return []
 
     return query.order_by(desc(models.Memory.created_at)).offset(skip).limit(limit).all()
 
-import json
-
-from .services.vector_store import vector_store
-
 def create_memory(db: Session, memory: schemas.MemoryCreate):
     data = memory.model_dump()
-    # Serialize photos to JSON string
     if "photos" in data:
         data["photos"] = json.dumps(data["photos"])
     
@@ -37,11 +32,11 @@ def create_memory(db: Session, memory: schemas.MemoryCreate):
     db.commit()
     db.refresh(db_memory)
     
-    # Sync with Vector Store
+    # Sync Vector Store
     try:
         vector_store.add_or_update(db_memory)
     except Exception as e:
-        print(f"Vector store update failed: {e}")
+        print(f"Error updating vector store: {e}")
 
     return db_memory
 
@@ -51,25 +46,22 @@ def update_memory(db: Session, memory_id: int, memory: schemas.MemoryUpdate):
         return None
     
     update_data = memory.model_dump(exclude_unset=True)
-    
-    # Serialize photos if present
     if "photos" in update_data:
         update_data["photos"] = json.dumps(update_data["photos"])
 
     for key, value in update_data.items():
         setattr(db_memory, key, value)
     
-    # explicit update time
     db_memory.updated_at = datetime.utcnow()
     
     db.commit()
     db.refresh(db_memory)
 
-    # Sync with Vector Store
+    # Sync Vector Store
     try:
         vector_store.add_or_update(db_memory)
     except Exception as e:
-        print(f"Vector store update failed: {e}")
+        print(f"Error updating vector store: {e}")
 
     return db_memory
 
@@ -78,11 +70,12 @@ def delete_memory(db: Session, memory_id: int):
     if db_memory:
         db.delete(db_memory)
         db.commit()
-        # Sync
+        # Sync Vector Store
         try:
-             vector_store.remove(memory_id)
+            vector_store.remove(memory_id)
         except Exception as e:
-             print(f"Vector store update failed: {e}")
+            print(f"Error updating vector store: {e}")
+            
     return db_memory
 
 # Settings

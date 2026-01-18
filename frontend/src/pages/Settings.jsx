@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import StatusMessage from '../components/StatusMessage';
-import { Cpu, Server, Save } from 'lucide-react';
+import { Cpu, Server, Save, Download, Upload, AlertTriangle, Archive } from 'lucide-react';
 
 export default function Settings() {
     const [settings, setSettings] = useState({
@@ -11,7 +11,13 @@ export default function Settings() {
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [status, setStatus] = useState(null); // { type: 'success'|'error', text: '' }
+    const [status, setStatus] = useState(null);
+
+    // Backup State
+    const [isRestoring, setIsRestoring] = useState(false);
+    const [restoreFile, setRestoreFile] = useState(null);
+    const [confirmRestore, setConfirmRestore] = useState(false);
+    const [backupStatus, setBackupStatus] = useState(null);
 
     async function fetchSettings() {
         try {
@@ -41,13 +47,54 @@ export default function Settings() {
         }
     };
 
+    const handleDownloadBackup = async () => {
+        setBackupStatus({ type: 'info', text: 'Preparing backup download...' });
+        try {
+            const blob = await api.download('/backup/export');
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const date = new Date().toISOString().slice(0, 10);
+            a.download = `MyLife-backup-${date}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            setBackupStatus(null);
+        } catch (err) {
+            setBackupStatus({ type: 'error', text: "Backup failed: " + err.message });
+        }
+    };
+
+    const handleRestoreBackup = async () => {
+        if (!restoreFile || !confirmRestore) return;
+
+        setIsRestoring(true);
+        setBackupStatus({ type: 'info', text: 'Uploading and restoring backup...' });
+
+        const formData = new FormData();
+        formData.append('file', restoreFile);
+
+        try {
+            await api.post('/backup/restore', formData);
+            setBackupStatus({ type: 'success', text: 'Restore successful! Please refresh the page.' });
+            setRestoreFile(null);
+            setConfirmRestore(false);
+            // Optional: Force reload window.location.reload();
+        } catch (err) {
+            setBackupStatus({ type: 'error', text: "Restore failed: " + err.message });
+        } finally {
+            setIsRestoring(false);
+        }
+    };
+
     if (loading) return <StatusMessage loading loadingText="Loading configuration..." />;
 
     return (
         <div>
             <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
                 <Cpu className="text-blue-400" />
-                AI Configuration
+                Configuration
             </h2>
 
             {status && status.type === 'error' && <StatusMessage error={status.text} onRetry={fetchSettings} />}
@@ -59,9 +106,10 @@ export default function Settings() {
                 </div>
             )}
 
-            <div className="bg-os-panel border border-os-hover rounded-xl p-6 space-y-6">
+            {/* AI SETTINGS */}
+            <div className="bg-os-panel border border-os-hover rounded-xl p-6 space-y-6 mb-8">
+                <h3 className="text-lg font-semibold text-white mb-4">AI Settings</h3>
 
-                {/* Provider Selection */}
                 <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">AI Provider</label>
                     <div className="grid grid-cols-1 gap-3">
@@ -87,7 +135,6 @@ export default function Settings() {
                     </div>
                 </div>
 
-                {/* Local Model Dropdown (Only if Local) */}
                 {settings.ai_provider === 'local' && (
                     <div className="pl-6 border-l-2 border-os-hover animate-in fade-in slide-in-from-top-2">
                         <label className="block text-sm font-medium text-gray-400 mb-2">Local Model</label>
@@ -107,19 +154,14 @@ export default function Settings() {
                     </div>
                 )}
 
-                {/* OpenAI Toggle */}
                 <div className="flex items-center gap-3 pt-2">
-                    <div className="relative inline-block w-10 h-6 align-middle select-none transition duration-200 ease-in">
-                        <input
-                            type="checkbox"
-                            name="toggle"
-                            id="openai_toggle"
-                            className="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer translate-x-1 checked:translate-x-5 transition-transform"
-                            checked={settings.openai_enabled}
-                            onChange={e => setSettings({ ...settings, openai_enabled: e.target.checked })}
-                        />
-                        <label htmlFor="openai_toggle" className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer border border-os-hover ${settings.openai_enabled ? 'bg-os-accent' : 'bg-os-bg'}`}></label>
-                    </div>
+                    <input
+                        type="checkbox"
+                        id="openai_toggle"
+                        className="w-4 h-4 accent-os-accent cursor-pointer"
+                        checked={settings.openai_enabled}
+                        onChange={e => setSettings({ ...settings, openai_enabled: e.target.checked })}
+                    />
                     <label htmlFor="openai_toggle" className="text-gray-300 text-sm cursor-pointer">Enable OpenAI Features (requires backend env key)</label>
                 </div>
 
@@ -133,8 +175,74 @@ export default function Settings() {
                         {saving ? 'Saving...' : 'Save Configuration'}
                     </button>
                 </div>
-
             </div>
+
+            {/* BACKUP & RESTORE */}
+            <div className="bg-os-panel border border-os-hover rounded-xl p-6 space-y-6">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Archive className="text-yellow-400" size={20} /> Backup & Restore
+                </h3>
+
+                {backupStatus && (
+                    <div className={`p-3 rounded-lg text-sm ${backupStatus.type === 'error' ? 'bg-red-900/30 text-red-200 border border-red-800' : 'bg-blue-900/30 text-blue-200 border border-blue-800'}`}>
+                        {backupStatus.text}
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Export */}
+                    <div className="space-y-4">
+                        <h4 className="font-medium text-gray-300">Export Parameters</h4>
+                        <p className="text-xs text-gray-500">Download a full zip archive of your memories database and all photos.</p>
+                        <button
+                            onClick={handleDownloadBackup}
+                            className="flex items-center gap-2 bg-os-hover hover:bg-os-accent text-white px-4 py-2 rounded-lg text-sm transition-colors border border-gray-600"
+                        >
+                            <Download size={16} /> Download Backup (.zip)
+                        </button>
+                    </div>
+
+                    {/* Import */}
+                    <div className="space-y-4 border-t md:border-t-0 md:border-l border-os-hover md:pl-8 pt-4 md:pt-0">
+                        <h4 className="font-medium text-gray-300">Restore Backup</h4>
+                        <p className="text-xs text-gray-500">Restore your memories from a previous zip file.</p>
+
+                        <div className="p-4 rounded bg-red-900/10 border border-red-900/30">
+                            <div className="flex items-start gap-2 text-yellow-500 mb-3">
+                                <AlertTriangle size={16} className="mt-0.5" />
+                                <span className="text-xs font-semibold">Warning: This will overwrite current data.</span>
+                            </div>
+
+                            <input
+                                type="file"
+                                accept=".zip"
+                                onChange={e => setRestoreFile(e.target.files[0])}
+                                className="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-os-accent file:text-white hover:file:bg-blue-600 mb-3"
+                            />
+
+                            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={confirmRestore}
+                                    onChange={e => setConfirmRestore(e.target.checked)}
+                                    className="accent-red-500"
+                                />
+                                I understand this will overwrite my data
+                            </label>
+
+                            <button
+                                onClick={handleRestoreBackup}
+                                disabled={!restoreFile || !confirmRestore || isRestoring}
+                                className="mt-4 flex items-center gap-2 bg-red-900/50 hover:bg-red-800 text-red-100 px-4 py-2 rounded-lg text-sm transition-colors w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isRestoring ? <StatusMessage loading /> : <Upload size={16} />}
+                                {isRestoring ? 'Restoring...' : 'Restore Backup'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     );
 }

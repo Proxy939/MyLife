@@ -1,7 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import StatusMessage from '../components/StatusMessage';
-import { Cpu, Server, Save, Download, Upload, AlertTriangle, Archive } from 'lucide-react';
+import { Cpu, Server, Save, Download, Upload, AlertTriangle, Archive, Shield, Lock, Key } from 'lucide-react';
+
+// Basic Hash Helper (Duplicate of LockScreen logic - ideally util)
+const hashPin = (pin) => {
+    let hash = 0;
+    for (let i = 0; i < pin.length; i++) {
+        const char = pin.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return hash.toString();
+};
 
 export default function Settings() {
     const [settings, setSettings] = useState({
@@ -18,6 +29,14 @@ export default function Settings() {
     const [restoreFile, setRestoreFile] = useState(null);
     const [confirmRestore, setConfirmRestore] = useState(false);
     const [backupStatus, setBackupStatus] = useState(null);
+    const [encryptBackup, setEncryptBackup] = useState(false);
+    const [backupPin, setBackupPin] = useState('');
+    const [restorePin, setRestorePin] = useState('');
+
+    // Security State
+    const [appLockEnabled, setAppLockEnabled] = useState(false);
+    const [pinInput, setPinInput] = useState('');
+    const [pinMode, setPinMode] = useState('set'); // 'set' or 'change'
 
     async function fetchSettings() {
         try {
@@ -32,6 +51,9 @@ export default function Settings() {
 
     useEffect(() => {
         fetchSettings();
+        const storedLock = localStorage.getItem('mylife_app_lock_enabled') === 'true';
+        setAppLockEnabled(storedLock);
+        setPinMode(localStorage.getItem('mylife_app_pin_hash') ? 'change' : 'set');
     }, []);
 
     const handleSave = async () => {
@@ -47,15 +69,54 @@ export default function Settings() {
         }
     };
 
+    // --- Security Handlers ---
+    const handleSetPin = () => {
+        if (pinInput.length < 4) {
+            setStatus({ type: 'error', text: "PIN must be at least 4 digits" });
+            return;
+        }
+        const hash = hashPin(pinInput);
+        localStorage.setItem('mylife_app_pin_hash', hash);
+        localStorage.setItem('mylife_app_lock_enabled', 'true');
+        setAppLockEnabled(true);
+        setPinMode('change');
+        setPinInput('');
+        setStatus({ type: 'success', text: "App Lock Initiated. PIN Set." });
+    };
+
+    const handleToggleLock = (e) => {
+        const enabled = e.target.checked;
+        if (enabled && pinMode === 'set') {
+            // Need to set PIN first
+            setStatus({ type: 'error', text: "Please set a PIN below first." });
+            return;
+        }
+        setAppLockEnabled(enabled);
+        localStorage.setItem('mylife_app_lock_enabled', enabled);
+    };
+
+
+    // --- Backup Handlers ---
+
     const handleDownloadBackup = async () => {
         setBackupStatus({ type: 'info', text: 'Preparing backup download...' });
         try {
-            const blob = await api.download('/backup/export');
+            let endpoint = '/backup/export';
+            if (encryptBackup) {
+                if (!backupPin || backupPin.length < 4) {
+                    setBackupStatus({ type: 'error', text: "Please enter a PIN (min 4 chars) for encryption." });
+                    return;
+                }
+                endpoint += `?pin=${encodeURIComponent(backupPin)}`;
+            }
+
+            const blob = await api.download(endpoint);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             const date = new Date().toISOString().slice(0, 10);
-            a.download = `MyLife-backup-${date}.zip`;
+            const ext = encryptBackup ? 'encrypted' : 'zip';
+            a.download = `MyLife-backup-${date}.${ext}`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -74,13 +135,16 @@ export default function Settings() {
 
         const formData = new FormData();
         formData.append('file', restoreFile);
+        if (restorePin) {
+            formData.append('pin', restorePin);
+        }
 
         try {
             await api.post('/backup/restore', formData);
             setBackupStatus({ type: 'success', text: 'Restore successful! Please refresh the page.' });
             setRestoreFile(null);
             setConfirmRestore(false);
-            // Optional: Force reload window.location.reload();
+            setRestorePin('');
         } catch (err) {
             setBackupStatus({ type: 'error', text: "Restore failed: " + err.message });
         } finally {
@@ -97,8 +161,7 @@ export default function Settings() {
                 Configuration
             </h2>
 
-            {status && status.type === 'error' && <StatusMessage error={status.text} onRetry={fetchSettings} />}
-
+            {status && status.type === 'error' && <StatusMessage error={status.text} onRetry={() => setStatus(null)} />}
             {status && status.type === 'success' && (
                 <div className="bg-green-900/30 border border-green-500/50 text-green-200 p-3 rounded-lg mb-6 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
@@ -106,9 +169,51 @@ export default function Settings() {
                 </div>
             )}
 
+            {/* SECURITY */}
+            <div className="bg-os-panel border border-os-hover rounded-xl p-6 space-y-6 mb-8">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Shield className="text-purple-400" size={20} /> App Security
+                </h3>
+
+                <div className="flex items-center justify-between">
+                    <span className="text-gray-300 text-sm">Enable App Lock (Require PIN on start)</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked={appLockEnabled} onChange={handleToggleLock} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                </div>
+
+                <div className="flex items-end gap-4 p-4 bg-os-bg rounded-lg border border-os-hover">
+                    <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                            {pinMode === 'set' ? 'Set New PIN' : 'Change PIN'}
+                        </label>
+                        <div className="flex items-center gap-2">
+                            <Key size={16} className="text-gray-500" />
+                            <input
+                                type="password"
+                                value={pinInput}
+                                onChange={e => setPinInput(e.target.value)}
+                                placeholder="Enter 4-6 digits"
+                                className="bg-transparent outline-none text-white w-full"
+                                maxLength={6}
+                            />
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleSetPin}
+                        disabled={!pinInput}
+                        className="text-xs bg-os-hover hover:bg-os-accent text-white px-3 py-1.5 rounded transition-colors disabled:opacity-50"
+                    >
+                        {pinMode === 'set' ? 'Set PIN' : 'Update'}
+                    </button>
+                </div>
+            </div>
+
+
             {/* AI SETTINGS */}
             <div className="bg-os-panel border border-os-hover rounded-xl p-6 space-y-6 mb-8">
-                <h3 className="text-lg font-semibold text-white mb-4">AI Settings</h3>
+                <h3 className="text-lg font-semibold text-white">AI Settings</h3>
 
                 <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">AI Provider</label>
@@ -122,54 +227,17 @@ export default function Settings() {
                                     checked={settings.ai_provider === mode}
                                     onChange={() => setSettings({ ...settings, ai_provider: mode })}
                                 />
-                                <div>
-                                    <div className="font-semibold text-white capitalize">{mode} Mode</div>
-                                    <div className="text-xs text-gray-400 mt-0.5">
-                                        {mode === 'auto' && 'Best for weak hardware. Uses simple rules.'}
-                                        {mode === 'local' && 'Run LLMs locally via Ollama.'}
-                                        {mode === 'openai' && 'Connect to OpenAI Cloud API.'}
-                                    </div>
-                                </div>
+                                <div className="capitalize font-medium text-white">{mode} Mode</div>
                             </label>
                         ))}
                     </div>
-                </div>
-
-                {settings.ai_provider === 'local' && (
-                    <div className="pl-6 border-l-2 border-os-hover animate-in fade-in slide-in-from-top-2">
-                        <label className="block text-sm font-medium text-gray-400 mb-2">Local Model</label>
-                        <select
-                            className="w-full bg-os-bg border border-os-hover rounded-lg p-2.5 text-white focus:border-os-accent outline-none"
-                            value={settings.local_model}
-                            onChange={e => setSettings({ ...settings, local_model: e.target.value })}
-                        >
-                            <option value="none">Select a model...</option>
-                            <option value="phi3">Phi-3 Mini (3.8GB)</option>
-                            <option value="mistral">Mistral 7B (4.1GB)</option>
-                            <option value="llama3">Llama 3.1 8B (4.7GB)</option>
-                        </select>
-                        <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                            <Server size={12} /> Make sure Ollama is running.
-                        </p>
-                    </div>
-                )}
-
-                <div className="flex items-center gap-3 pt-2">
-                    <input
-                        type="checkbox"
-                        id="openai_toggle"
-                        className="w-4 h-4 accent-os-accent cursor-pointer"
-                        checked={settings.openai_enabled}
-                        onChange={e => setSettings({ ...settings, openai_enabled: e.target.checked })}
-                    />
-                    <label htmlFor="openai_toggle" className="text-gray-300 text-sm cursor-pointer">Enable OpenAI Features (requires backend env key)</label>
                 </div>
 
                 <div className="pt-4 border-t border-os-hover">
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="flex items-center gap-2 bg-os-accent hover:bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 shadow-lg hover:shadow-blue-500/20"
+                        className="flex items-center gap-2 bg-os-accent hover:bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 shadow-lg"
                     >
                         {saving ? <StatusMessage loading /> : <Save size={18} />}
                         {saving ? 'Saving...' : 'Save Configuration'}
@@ -192,33 +260,59 @@ export default function Settings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Export */}
                     <div className="space-y-4">
-                        <h4 className="font-medium text-gray-300">Export Parameters</h4>
-                        <p className="text-xs text-gray-500">Download a full zip archive of your memories database and all photos.</p>
-                        <button
-                            onClick={handleDownloadBackup}
-                            className="flex items-center gap-2 bg-os-hover hover:bg-os-accent text-white px-4 py-2 rounded-lg text-sm transition-colors border border-gray-600"
-                        >
-                            <Download size={16} /> Download Backup (.zip)
-                        </button>
+                        <h4 className="font-medium text-gray-300">Export</h4>
+
+                        <div className="space-y-3">
+                            <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={encryptBackup}
+                                    onChange={e => setEncryptBackup(e.target.checked)}
+                                    className="accent-os-accent"
+                                />
+                                <Lock size={14} /> Encrypt backup with PIN
+                            </label>
+
+                            {encryptBackup && (
+                                <input
+                                    type="password"
+                                    value={backupPin}
+                                    onChange={e => setBackupPin(e.target.value)}
+                                    placeholder="Enter Encryption PIN"
+                                    className="w-full bg-os-bg border border-os-hover rounded p-2 text-sm text-white focus:border-os-accent outline-none"
+                                />
+                            )}
+
+                            <button
+                                onClick={handleDownloadBackup}
+                                className="flex items-center gap-2 bg-os-hover hover:bg-os-accent text-white px-4 py-2 rounded-lg text-sm transition-colors border border-gray-600 w-full justify-center"
+                            >
+                                <Download size={16} /> Download Backup
+                            </button>
+                        </div>
                     </div>
 
                     {/* Import */}
                     <div className="space-y-4 border-t md:border-t-0 md:border-l border-os-hover md:pl-8 pt-4 md:pt-0">
-                        <h4 className="font-medium text-gray-300">Restore Backup</h4>
-                        <p className="text-xs text-gray-500">Restore your memories from a previous zip file.</p>
+                        <h4 className="font-medium text-gray-300">Restore</h4>
 
-                        <div className="p-4 rounded bg-red-900/10 border border-red-900/30">
-                            <div className="flex items-start gap-2 text-yellow-500 mb-3">
-                                <AlertTriangle size={16} className="mt-0.5" />
-                                <span className="text-xs font-semibold">Warning: This will overwrite current data.</span>
-                            </div>
-
+                        <div className="p-4 rounded bg-red-900/10 border border-red-900/30 space-y-3">
                             <input
                                 type="file"
-                                accept=".zip"
+                                accept=".zip,.encrypted"
                                 onChange={e => setRestoreFile(e.target.files[0])}
-                                className="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-os-accent file:text-white hover:file:bg-blue-600 mb-3"
+                                className="block w-full text-xs text-gray-400"
                             />
+
+                            {restoreFile && restoreFile.name.endsWith('.encrypted') && (
+                                <input
+                                    type="password"
+                                    value={restorePin}
+                                    onChange={e => setRestorePin(e.target.value)}
+                                    placeholder="Enter Encryption PIN"
+                                    className="w-full bg-os-bg border border-red-900/50 rounded p-2 text-sm text-white focus:border-red-500 outline-none"
+                                />
+                            )}
 
                             <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
                                 <input
@@ -227,13 +321,13 @@ export default function Settings() {
                                     onChange={e => setConfirmRestore(e.target.checked)}
                                     className="accent-red-500"
                                 />
-                                I understand this will overwrite my data
+                                Overwrite current data
                             </label>
 
                             <button
                                 onClick={handleRestoreBackup}
                                 disabled={!restoreFile || !confirmRestore || isRestoring}
-                                className="mt-4 flex items-center gap-2 bg-red-900/50 hover:bg-red-800 text-red-100 px-4 py-2 rounded-lg text-sm transition-colors w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 bg-red-900/50 hover:bg-red-800 text-red-100 px-4 py-2 rounded-lg text-sm transition-colors w-full justify-center disabled:opacity-50"
                             >
                                 {isRestoring ? <StatusMessage loading /> : <Upload size={16} />}
                                 {isRestoring ? 'Restoring...' : 'Restore Backup'}

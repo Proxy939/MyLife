@@ -1,20 +1,50 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare } from 'lucide-react';
+import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export default function Layout({ children, onMonthChange, selectedMonth, rightPanel }) {
     const location = useLocation();
     const isActive = (path) => location.pathname === path ? "bg-os-accent text-white" : "text-gray-400 hover:text-white hover:bg-os-hover";
 
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
     return (
         <div className="flex h-screen w-full bg-os-bg overflow-hidden text-sm">
             {/* Sidebar */}
             <aside className="w-64 bg-os-panel border-r border-os-hover flex flex-col p-4 space-y-4">
-                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 mb-6 flex items-center gap-2">
+                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 mb-2 flex items-center gap-2">
                     <LayoutGrid size={24} className="text-blue-400" />
                     MyLife
                 </h1>
 
-                <nav className="flex flex-col space-y-1 flex-1">
+                {/* Offline Indicator */}
+                {!isOnline && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-red-900/30 border border-red-800 rounded text-xs text-red-200">
+                        <WifiOff size={14} /> Offline Mode
+                    </div>
+                )}
+
+                {isOnline && (
+                    <div className="flex items-center gap-2 px-3 py-1 text-xs text-gray-500">
+                        <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
+                        Online
+                    </div>
+                )}
+
+                <nav className="flex flex-col space-y-1 flex-1 mt-4">
                     <Link to="/" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/')}`}>
                         <Home size={18} /> Timeline
                     </Link>
@@ -57,6 +87,11 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto p-8 relative">
                 <div className="max-w-3xl mx-auto pb-20">
+                    {!isOnline && (
+                        <div className="mb-4 text-center text-xs text-gray-400 animate-pulse">
+                            You’re offline. Using cached data. Sync will resume when online.
+                        </div>
+                    )}
                     {children}
                 </div>
             </main>

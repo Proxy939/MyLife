@@ -20,12 +20,25 @@ class APIResponse(BaseModel, Generic[T]):
     data: Optional[T] = None
     error: Optional[dict] = None # Expecting {"message": "...", "details": "..."} or null
 
+import json
+
 # --- Memory Schemas ---
 class MemoryBase(BaseModel):
     title: str = Field(..., min_length=3)
     note: str = Field(..., min_length=5)
     tags: Optional[str] = Field(default="", max_length=300)
     mood: MoodEnum = MoodEnum.neutral
+    photos: List[str] = []
+
+    @field_validator("photos", mode="before")
+    @classmethod
+    def parse_photos(cls, v: Any) -> List[str]:
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return []
+        return v if v is not None else []
 
 class MemoryCreate(MemoryBase):
     pass
@@ -35,6 +48,7 @@ class MemoryUpdate(BaseModel):
     note: Optional[str] = Field(None, min_length=5)
     tags: Optional[str] = Field(None, max_length=300)
     mood: Optional[MoodEnum] = None
+    photos: Optional[List[str]] = None 
 
 class MemoryRead(MemoryBase):
     id: int

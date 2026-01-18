@@ -63,6 +63,45 @@ def update_memory(memory_id: int, memory: schemas.MemoryUpdate, db: Session = De
          return {"success": False, "error": {"message": "Memory not found"}}
     return {"success": True, "data": db_memory}
 
+@router.post("/{memory_id}/photos", response_model=schemas.APIResponse[schemas.MemoryRead])
+def attach_photos(memory_id: int, payload: dict, db: Session = Depends(get_db)): # Using dict for loose body { "paths": [...] }
+    # Ideally should use a Schema (e.g. PhotoAttachRequest), but prompt implied body shape.
+    # Requirement: Body includes: { "paths": ["storage/photos/..", ...] }
+    
+    if "paths" not in payload or not isinstance(payload["paths"], list):
+         return {"success": False, "error": {"message": "Invalid body. Expected {'paths': [str, ...]}"}}
+    
+    new_paths = payload["paths"]
+    
+    db_memory = crud.get_memory(db, memory_id)
+    if not db_memory:
+         return {"success": False, "error": {"message": "Memory not found"}}
+    
+    # Logic: Append to existing.
+    # We need to rely on Pydantic's parsing or manual JSON load?
+    # db_memory.photos is a String (Text) in DB model.
+    import json
+    existing_photos = []
+    if db_memory.photos:
+        try:
+            existing_photos = json.loads(db_memory.photos)
+        except:
+            existing_photos = []
+            
+    # Append
+    updated_list = existing_photos + new_paths
+    # Deduplicate? Prompt says "Append... (do not overwrite)". Doesn't explicitly say dedup.
+    # Let's keep it simple append.
+    
+    # Update via CRUD or direct? 
+    # Use CRUD update to ensure updated_at triggers!
+    # Reuse update_memory schema?
+    
+    update_schema = schemas.MemoryUpdate(photos=updated_list)
+    updated_memory = crud.update_memory(db, memory_id, update_schema)
+    
+    return {"success": True, "data": updated_memory}
+
 @router.delete("/{memory_id}", response_model=schemas.APIResponse[schemas.MemoryRead])
 def delete_memory(memory_id: int, db: Session = Depends(get_db)):
     db_memory = crud.delete_memory(db, memory_id=memory_id)

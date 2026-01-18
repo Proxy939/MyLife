@@ -22,8 +22,15 @@ def get_memories(db: Session, skip: int = 0, limit: int = 100, month: str = None
 
     return query.order_by(desc(models.Memory.created_at)).offset(skip).limit(limit).all()
 
+import json
+
 def create_memory(db: Session, memory: schemas.MemoryCreate):
-    db_memory = models.Memory(**memory.model_dump())
+    data = memory.model_dump()
+    # Serialize photos to JSON string
+    if "photos" in data:
+        data["photos"] = json.dumps(data["photos"])
+    
+    db_memory = models.Memory(**data)
     db.add(db_memory)
     db.commit()
     db.refresh(db_memory)
@@ -35,6 +42,11 @@ def update_memory(db: Session, memory_id: int, memory: schemas.MemoryUpdate):
         return None
     
     update_data = memory.model_dump(exclude_unset=True)
+    
+    # Serialize photos if present
+    if "photos" in update_data:
+        update_data["photos"] = json.dumps(update_data["photos"])
+
     for key, value in update_data.items():
         setattr(db_memory, key, value)
     

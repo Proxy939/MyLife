@@ -10,6 +10,7 @@ class Memory(Base):
     note = Column(Text, nullable=False)
     tags = Column(String, default="")
     mood = Column(String, default="neutral")
+    photos = Column(Text, default="[]") # JSON string of paths
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

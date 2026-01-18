@@ -1,4 +1,4 @@
-# MyLife - Personal Memory Management System
+# MyLife - Personal journal for every Memory which you dont want to forget
 
 <div align="center">
 

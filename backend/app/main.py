@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import memories, recap, settings, media, ai
+from .routers import memories, recap, settings, media, ai, backup
 from .database import engine, Base, SessionLocal
 from .config import settings as app_settings
 from . import crud, models
@@ -26,8 +26,9 @@ def startup_event():
     finally:
         db.close()
     
-    # Ensure Photo Storage exists
+    # Ensure Storage Dirs
     os.makedirs("backend/storage/photos", exist_ok=True)
+    os.makedirs("backend/storage/backups_tmp", exist_ok=True)
 
 # CORS
 app.add_middleware(
@@ -44,6 +45,7 @@ app.include_router(recap.router)
 app.include_router(settings.router)
 app.include_router(media.router)
 app.include_router(ai.router)
+app.include_router(backup.router)
 
 @app.get("/health")
 def health_check():

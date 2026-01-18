@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Timeline from './pages/Timeline';
 import AddMemory from './pages/AddMemory';
@@ -14,6 +14,8 @@ import SystemStatus from './pages/SystemStatus';
 import Notifications from './pages/Notifications';
 import { useState, useEffect } from 'react';
 import { NotificationProvider } from './context/NotificationContext';
+import { api } from './api/client';
+import { Loader2 } from 'lucide-react';
 
 function ProtectedRoute({ children, isLocked }) {
     if (isLocked) {
@@ -27,12 +29,10 @@ function AppContent() {
         return localStorage.getItem('mylife_selected_month') || new Date().toISOString().slice(0, 7);
     });
 
-    // Lock State
     const [isLocked, setIsLocked] = useState(false);
     const [lockChecked, setLockChecked] = useState(false);
 
     useEffect(() => {
-        // Init Lock
         const enabled = localStorage.getItem('mylife_app_lock_enabled') === 'true';
         const sessionUnlocked = sessionStorage.getItem('mylife_session_unlocked');
 
@@ -51,7 +51,7 @@ function AppContent() {
         setIsLocked(false);
     };
 
-    if (!lockChecked) return null; // Prevent flash
+    if (!lockChecked) return null;
 
     return (
         <Routes>
@@ -85,7 +85,56 @@ function AppContent() {
     );
 }
 
+function LoadingSplash({ retryCount }) {
+    return (
+        <div className="flex flex-col items-center justify-center h-screen bg-os-bg text-white space-y-4 animate-in fade-in pb-20">
+            <div className="relative">
+                <div className="absolute inset-0 bg-blue-500 blur-xl opacity-20 rounded-full"></div>
+                <Loader2 size={64} className="text-blue-400 animate-spin relative z-10" />
+            </div>
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-green-400">
+                Starting MyLife Engine...
+            </h1>
+            <p className="text-gray-500 text-sm">Organizing your digital brain ({retryCount}s)</p>
+        </div>
+    );
+}
+
 function App() {
+    const [backendReady, setBackendReady] = useState(false);
+    const [retry, setRetry] = useState(0);
+
+    useEffect(() => {
+        // Health Check Loop
+        const checkHealth = async () => {
+            try {
+                // We use a raw fetch here to avoid the client.js error handling wrapper for this simple check
+                // But client.js api.get is fine too if it returns data.
+                // Let's use simple fetch to be robust against "failed to fetch"
+                const res = await fetch("http://127.0.0.1:8000/health");
+                if (res.ok) {
+                    setBackendReady(true);
+                    return;
+                }
+            } catch (e) {
+                // Ignore error, just retry
+            }
+
+            // Retry
+            const timeout = setTimeout(() => {
+                setRetry(r => r + 1);
+                checkHealth();
+            }, 1000);
+            return () => clearTimeout(timeout);
+        };
+
+        checkHealth();
+    }, []);
+
+    if (!backendReady) {
+        return <LoadingSplash retryCount={retry} />;
+    }
+
     return (
         <Router>
             <NotificationProvider>

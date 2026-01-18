@@ -3,13 +3,13 @@ from sqlalchemy import extract
 from collections import Counter
 from datetime import datetime
 from .. import models, schemas, crud
+from .ai_router import ai_router_service
 
 def generate_monthly_recap(db: Session, month: str) -> schemas.MonthlyRecapResponse:
     # 1. Fetch memories for the month
     try:
         target_date = datetime.strptime(month, "%Y-%m")
     except ValueError:
-        # Fallback or error, but let's assume valid
         return schemas.MonthlyRecapResponse(
             month=month, total_memories=0, highlights=[], mood_hint="unknown", summary="Invalid date format."
         )
@@ -30,32 +30,45 @@ def generate_monthly_recap(db: Session, month: str) -> schemas.MonthlyRecapRespo
             summary="No memories found for this month."
         )
 
-    # 2. Logic for AUTO mode (Rule-based)
-    
-    # Highlights: Top 3 most recent titles (already sorted desc by creaed_at)
+    # 2. Base Statistics (shared)
     highlights = [m.title for m in memories[:3]]
-
-    # Mood Hint: Most frequent mood
     moods = [m.mood for m in memories if m.mood]
     mood_hint = "neutral"
     if moods:
         mood_hint = Counter(moods).most_common(1)[0][0]
 
-    # Summary: Count + Top Tags
-    all_tags = []
-    for m in memories:
-        if m.tags:
-            tags_list = [t.strip() for t in m.tags.split(",") if t.strip()]
-            all_tags.extend(tags_list)
+    # 3. Generate Summary
+    summary = ""
+    settings = crud.get_settings(db)
     
-    top_tags = [tag for tag, count in Counter(all_tags).most_common(3)]
-    tags_str = ", ".join(top_tags)
-    
-    summary = f"You recorded {total_memories} memories this month."
-    if top_tags:
-        summary += f" Key themes were: {tags_str}."
-    else:
-        summary += " It was a quiet month."
+    # Try OpenAI if enabled
+    if settings.ai_provider == "openai" and settings.openai_enabled:
+        try:
+            summary = ai_router_service.generate_recap_openai(memories)
+        except Exception as e:
+            print(f"OpenAI Recap failed: {e}")
+            # Fallback to Auto logic below
+            pass
+            
+    # Auto Mode Logic (Fallback or Default)
+    if not summary:
+        all_tags = []
+        for m in memories:
+            if m.tags:
+                tags_list = [t.strip() for t in m.tags.split(",") if t.strip()]
+                all_tags.extend(tags_list)
+        
+        top_tags = [tag for tag, count in Counter(all_tags).most_common(3)]
+        tags_str = ", ".join(top_tags)
+        
+        summary = f"You recorded {total_memories} memories this month."
+        if top_tags:
+            summary += f" Key themes were: {tags_str}."
+        else:
+            summary += " It was a quiet month."
+        
+        if settings.ai_provider == "openai":
+            summary += " (Fallback Auto Mode)"
 
     return schemas.MonthlyRecapResponse(
         month=month,

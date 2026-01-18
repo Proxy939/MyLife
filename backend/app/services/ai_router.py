@@ -1,5 +1,7 @@
 import requests
 import logging
+import os
+from openai import OpenAI
 from sqlalchemy.orm import Session
 from .. import crud, models
 from .vector_store import vector_store
@@ -11,6 +13,12 @@ logger = logging.getLogger(__name__)
 OLLAMA_API_URL = "http://127.0.0.1:11434"
 
 class AIRouterService:
+    def __init__(self):
+        self.openai_client = None
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if api_key:
+            self.openai_client = OpenAI(api_key=api_key)
+
     def get_ollama_models(self):
         try:
             res = requests.get(f"{OLLAMA_API_URL}/api/tags", timeout=2)
@@ -23,7 +31,7 @@ class AIRouterService:
         return {"installed": [], "ollama_running": False}
 
     def _generate_auto_reply(self, message: str, memories: list):
-        """Fallback rule-based logic"""
+        """Fallback rule-based chat logic"""
         reply = ""
         if not memories:
             reply = "I couldn't find any specific memories related to that. Try writing a new memory about it!"
@@ -83,11 +91,32 @@ class AIRouterService:
             logger.error(f"Ollama Call Failed: {e}")
             raise e
 
+    def _generate_openai_reply(self, message: str, memories: list):
+        """Call OpenAI with Context"""
+        if not self.openai_client:
+            raise Exception("OpenAI API Key not found")
+
+        context_str = ""
+        for m in memories:
+            date_str = m.created_at.strftime("%Y-%m-%d")
+            context_str += f"- [{date_str}] {m.title} (Mood: {m.mood}): {m.note}\n"
+
+        response = self.openai_client.chat.completions.create(
+            model="gpt-3.5-turbo", # Default to cost-effective model, or make configurable later
+            messages=[
+                {"role": "system", "content": "You are a helpful and empathetic AI assistant for a personal journal. Summarize insights based on the user's memories provided."},
+                {"role": "user", "content": f"Context Memories:\n{context_str}\n\nUser Question: {message}"}
+            ],
+            max_tokens=300
+        )
+        return response.choices[0].message.content
+
     def chat(self, message: str, db: Session):
         settings = crud.get_settings(db)
         
-        # 1. Retrieve Context (Top 5 for LLM, or 3 for Auto)
-        top_k = 5 if settings.ai_provider == "local" else 3
+        # 1. Retrieve Context
+        # OpenAI/Local get 5, Auto gets 3
+        top_k = 3 if settings.ai_provider == "auto" else 5
         search_results = vector_store.search(message, top_k=top_k)
         
         memories = []
@@ -100,16 +129,47 @@ class AIRouterService:
         reply = ""
 
         # 2. Route Request
-        if settings.ai_provider == "local":
-            try:
-                reply = self._generate_local_reply(message, memories, settings.local_model)
-            except Exception:
-                logger.warning("Local LLM failed, falling back to Auto")
-                reply = self._generate_auto_reply(message, memories) # Fallback
-        else:
-            # Auto or OpenAI (fallback to Auto for now)
+        try:
+            if settings.ai_provider == "openai" and settings.openai_enabled:
+                 reply = self._generate_openai_reply(message, memories)
+            elif settings.ai_provider == "local":
+                 reply = self._generate_local_reply(message, memories, settings.local_model)
+            else:
+                 reply = self._generate_auto_reply(message, memories)
+        except Exception as e:
+            logger.error(f"AI Provider {settings.ai_provider} failed: {e}")
+            # Fallback
             reply = self._generate_auto_reply(message, memories)
 
         return {"reply": reply, "memory_refs": memory_refs}
+
+    def generate_recap_openai(self, memories: list):
+        """Generate a monthly recap summary using OpenAI"""
+        if not self.openai_client:
+            raise Exception("OpenAI API Key not found")
+        
+        if not memories:
+            return "No memories recorded this month."
+
+        context_str = ""
+        # Limit to 30 memories to fit token context reasonable
+        for m in memories[:30]: 
+            date_str = m.created_at.strftime("%d")
+            context_str += f"- Day {date_str}: {m.title} ({m.mood}): {m.note[:100]}...\n"
+
+        prompt = (
+            "Write a warm, concise monthly recap summary (2-3 sentences) based on these journal entries. "
+            "Highlight the general mood and key events."
+        )
+
+        response = self.openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are an empathetic journal assistant."},
+                {"role": "user", "content": f"Entries:\n{context_str}\n\n{prompt}"}
+            ],
+            max_tokens=200
+        )
+        return response.choices[0].message.content
 
 ai_router_service = AIRouterService()

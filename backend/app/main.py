@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import memories, recap, settings, media, ai, backup
+from .routers import memories, recap, settings, media, ai, backup, system
 from .database import engine, Base, SessionLocal
 from .config import settings as app_settings
 from . import crud, models
 from .services.vector_store import vector_store
+from .services.scheduler import start_scheduler, shutdown_scheduler
 import os
 
 # Create tables
@@ -30,6 +31,13 @@ def startup_event():
     os.makedirs("backend/storage/photos", exist_ok=True)
     os.makedirs("backend/storage/backups_tmp", exist_ok=True)
 
+    # Start Scheduler
+    start_scheduler()
+
+@app.on_event("shutdown")
+def shutdown_event():
+    shutdown_scheduler()
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -46,6 +54,7 @@ app.include_router(settings.router)
 app.include_router(media.router)
 app.include_router(ai.router)
 app.include_router(backup.router)
+app.include_router(system.router)
 
 @app.get("/health")
 def health_check():

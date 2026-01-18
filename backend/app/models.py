@@ -21,3 +21,13 @@ class AppSettings(Base):
     ai_provider = Column(String, default="auto")
     local_model = Column(String, default="none")
     openai_enabled = Column(Boolean, default=False)
+
+class MonthlyRecapCache(Base):
+    __tablename__ = "monthly_recap_cache"
+
+    id = Column(Integer, primary_key=True, index=True)
+    month = Column(String, unique=True, index=True) # YYYY-MM
+    summary = Column(Text)
+    highlights = Column(Text) # JSON string
+    mood_hint = Column(String)
+    generated_at = Column(DateTime, default=func.now())

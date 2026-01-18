@@ -1,4 +1,4 @@
-# MyLife - Personal Memory Management System
+# MyLife - Personal journal for every Memory which you dont want to forget
 
 <div align="center">
 
@@ -853,7 +853,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 <div align="center">
 
-**Made with ❤️ for better memory management**
+**Made with ❤️ for your sweet memories **
 
 ⭐ Star this repo if you find it useful!
 

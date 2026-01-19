@@ -32,30 +32,39 @@ class AIRouterService:
         return {"installed": [], "ollama_running": False}
 
     def _generate_auto_reply(self, message: str, memories: list):
-        """Fallback rule-based chat logic"""
+        """Fallback rule-based chat logic with empathy"""
         reply = ""
         if not memories:
-            reply = "I couldn't find any specific memories related to that. Try writing a new memory about it!"
+            reply = "I don't have any memories related to that yet, but I'm here to listen! 💭 Feel free to share your thoughts by creating a new memory, or ask me about the MyLife system."
         else:
             titles = ", ".join([f"'{m.title}'" for m in memories])
             themes = set()
+            moods = [m.mood for m in memories]
             for m in memories:
                 if m.tags:
                     themes.update([t.strip() for t in m.tags.split(',')])
             theme_str = ", ".join(list(themes)[:3])
             
+            # Analyze mood patterns
+            positive_moods = sum(1 for mood in moods if mood in ['happy', 'calm', 'excited'])
+            negative_moods = sum(1 for mood in moods if mood in ['sad', 'stressed'])
+            
             if "?" in message:
-                reply = f"Based on {titles}, it seems like this is a recurring theme. "
-                if "stress" in theme_str.lower() or "sad" in theme_str.lower():
-                     reply += "You've handled similar situations before. Maybe take a break?"
+                reply = f"Looking at your memories {titles}, I can see this matters to you. "
+                if negative_moods > positive_moods:
+                     reply += "I notice you've been going through some challenges. Remember, you've overcome difficulties before, and I'm here to support you. 🌟"
+                elif positive_moods > 0:
+                     reply += f"I see some positive experiences here! Keep building on what's working for you. ✨"
                 else:
-                     reply += f"You have some positive experiences related to {theme_str}."
+                     reply += "Every experience teaches us something valuable. How are you feeling about it now?"
             else:
-                reply = f"I found some memories that match: {titles}. "
+                reply = f"I found memories that resonate with this: {titles}. "
                 if theme_str:
-                    reply += f"Common themes involved are {theme_str}."
+                    reply += f"Common themes include {theme_str}. "
+                reply += "What would you like to reflect on?"
         
-        return reply + " (Auto Mode)"
+        return reply + " 💬"
+
 
     def _generate_local_reply(self, message: str, memories: list, model: str):
         """Call Ollama with Context"""
@@ -68,9 +77,12 @@ class AIRouterService:
             context_str += f"- [{date_str}] {m.title} (Mood: {m.mood}): {m.note}\n"
 
         system_prompt = (
-            "You are a helpful AI assistant for the user's personal journal 'MyLife'. "
-            "Use the provided memory context to answer the user's message warmly and concisely. "
-            "If the memories don't help, verify that, but try to be helpful."
+            "You are Lyra, an empathetic AI companion for MyLife - a personal memory and journaling system. "
+            "Your role is to provide emotional support, help users reflect on their experiences, "
+            "and guide them through life's challenges with warmth and understanding. "
+            "Be respectful, kind, and encouraging. Reference their memories when relevant. "
+            "Keep responses concise (2-4 sentences). Use emojis occasionally for warmth. "
+            "Help with: emotional support, communication skills, life navigation, and system guidance."
         )
 
         prompt = f"Context:\n{context_str}\n\nUser Message: {message}\n\nAnswer:"
@@ -102,15 +114,68 @@ class AIRouterService:
             date_str = m.created_at.strftime("%Y-%m-%d")
             context_str += f"- [{date_str}] {m.title} (Mood: {m.mood}): {m.note}\n"
 
+        system_prompt = """You are Lyra, an empathetic and insightful AI companion for MyLife - a personal memory and journaling system.
+
+**Your Core Abilities:**
+1. **Emotional Support & Empathy**
+   - Listen actively and validate emotions
+   - Provide comfort during difficult times
+   - Celebrate successes and positive moments
+   - Recognize patterns in emotional well-being
+   - Offer gentle encouragement without being pushy
+
+2. **Communication Skills**
+   - Use warm, conversational language
+   - Ask thoughtful follow-up questions
+   - Practice active listening
+   - Mirror the user's communication style
+   - Be concise yet meaningful
+
+3. **Good Manners & Etiquette**
+   - Always be respectful and kind
+   - Use "please" and "thank you" appropriately
+   - Acknowledge user's time and effort
+   - Apologize genuinely when needed
+   - Show appreciation for sharing personal thoughts
+
+4. **Life Navigation & Guidance**
+   - Help users reflect on their experiences
+   - Identify patterns in their behavior and emotions
+   - Suggest healthy coping strategies
+   - Encourage personal growth and self-care
+   - Provide perspective on challenges
+   - Help set realistic goals
+
+5. **MyLife System Knowledge**
+   - Help users understand how to use the app effectively
+   - Explain features: Timeline, Analytics, Insights, Search, Chat
+   - Guide on organizing memories and tags
+   - Suggest ways to maximize the journaling experience
+   - Explain mood tracking and its benefits
+
+**Your Approach:**
+- Be warm, friendly, and approachable
+- Reference specific memories when relevant
+- Notice emotional patterns and trends
+- Offer actionable advice when appropriate
+- Respect privacy and confidentiality
+- Balance being supportive with being realistic
+- Use emojis occasionally to add warmth (but not excessively)
+- Keep responses focused and concise (2-4 sentences typically)
+
+**Remember:** You're not just answering questions - you're a trusted companion helping the user navigate their life journey through their own recorded experiences."""
+
         response = self.openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a helpful and empathetic AI assistant for a personal journal. Summarize insights based on the user's memories provided."},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Context Memories:\n{context_str}\n\nUser Question: {message}"}
             ],
-            max_tokens=300
+            max_tokens=400,
+            temperature=0.7
         )
         return response.choices[0].message.content
+
 
     def chat(self, message: str, db: Session):
         settings = crud.get_settings(db)

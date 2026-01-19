@@ -12,6 +12,7 @@ import Analytics from './pages/Analytics';
 import Insights from './pages/Insights';
 import SystemStatus from './pages/SystemStatus';
 import Notifications from './pages/Notifications';
+import TerminalLogin from './pages/TerminalLogin';
 import { useState, useEffect } from 'react';
 import { NotificationProvider } from './context/NotificationContext';
 import { api } from './api/client';
@@ -101,10 +102,15 @@ function LoadingSplash({ retryCount }) {
 }
 
 function App() {
+    const [terminalUnlocked, setTerminalUnlocked] = useState(() => {
+        return sessionStorage.getItem('mylife_terminal_unlocked') === 'true';
+    });
     const [backendReady, setBackendReady] = useState(false);
     const [retry, setRetry] = useState(0);
 
     useEffect(() => {
+        if (!terminalUnlocked) return;
+
         console.log('🔍 Starting backend health check...');
 
         // Health Check Loop
@@ -137,8 +143,19 @@ function App() {
         };
 
         checkHealth();
-    }, [retry]);
+    }, [retry, terminalUnlocked]);
 
+    const handleTerminalUnlock = () => {
+        sessionStorage.setItem('mylife_terminal_unlocked', 'true');
+        setTerminalUnlocked(true);
+    };
+
+    // Show terminal login first
+    if (!terminalUnlocked) {
+        return <TerminalLogin onUnlock={handleTerminalUnlock} />;
+    }
+
+    // Then check backend
     if (!backendReady) {
         return <LoadingSplash retryCount={retry} />;
     }

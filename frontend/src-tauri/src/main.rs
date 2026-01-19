@@ -37,15 +37,24 @@ fn main() {
         println!("Starting backend...");
         
         // 2. Resolve Path
-        // Assuming we rely on 'uvicorn' in PATH and running from dev environment
-        // Dev Path: panic if we can't find the backend folder
         // We look for "backend" sibling to "frontend" (src-tauri's grandparent)
         // ../../backend
         let backend_dir = Path::new("../../backend");
         
         if config_is_dev() && backend_dir.exists() {
-             let child = Command::new("uvicorn")
-                .args(&["app.main:app", "--host", "127.0.0.1", "--port", "8000"])
+            // Use venv's python.exe on Windows
+            let venv_python = backend_dir.join("venv").join("Scripts").join("python.exe");
+            
+            let (command, args): (&str, Vec<&str>) = if venv_python.exists() {
+                // Use venv Python to run uvicorn
+                (venv_python.to_str().unwrap(), vec!["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000"])
+            } else {
+                // Fallback: try system python
+                ("python", vec!["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000"])
+            };
+            
+            let child = Command::new(command)
+                .args(&args)
                 .current_dir(backend_dir)
                 .creation_flags(CREATE_NO_WINDOW) // Windows only: Hide terminal
                 .stdout(Stdio::piped())
@@ -64,10 +73,6 @@ fn main() {
                 }
             }
         } else {
-            // In Production Request: The user only asked for "Start FastAPI Backend" via uvicorn command.
-            // A real prod app would bundle the executable. 
-            // For this step, we keep the dev logic as "running local backend".
-            // If we needed to support prod, we'd look for a sidecar.
             println!("Production mode or backend dir not found - skipping auto-start logic for now.");
         }
 

@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain, Bell, Server } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNotificationContext } from '../context/NotificationContext';
+import FloatingParticles from './FloatingParticles';
 
 export default function Layout({ children, onMonthChange, selectedMonth, rightPanel }) {
     const location = useLocation();
@@ -24,9 +25,12 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
     }, []);
 
     return (
-        <div className="flex h-screen w-full bg-os-bg overflow-hidden text-sm">
+        <div className="flex h-screen w-full bg-os-bg overflow-hidden text-sm relative">
+            {/* Floating Particles Background */}
+            <FloatingParticles />
+
             {/* Sidebar */}
-            <aside className="w-64 bg-os-panel border-r border-os-hover flex flex-col p-4 space-y-4">
+            <aside className="w-64 bg-os-panel border-r border-os-hover flex flex-col p-4 space-y-4 relative z-10">
                 <Link to="/" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 mb-2 flex items-center gap-2 hover:opacity-80 transition-opacity">
                     <LayoutGrid size={24} className="text-blue-400" />
                     MyLife

@@ -1,22 +1,25 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import './index.css'
 import { registerSW } from 'virtual:pwa-register'
+
+console.log('🚀 MyLife Starting... | Environment:', import.meta.env.MODE);
+console.log('🔌 API URL:', import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000');
 
 // Auto-update service worker
 const updateSW = registerSW({
     onNeedRefresh() {
-        // Show user notification logic here if desired, 
-        // for now we stick to autoUpdate strategy in config
+        console.log('🔄 PWA: New version available');
     },
     onOfflineReady() {
-        console.log('App ready to work offline')
+        console.log('✅ PWA: App ready to work offline');
     },
 })
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-    <React.StrictMode>
+    <ErrorBoundary>
         <App />
-    </React.StrictMode>,
+    </ErrorBoundary>
 )

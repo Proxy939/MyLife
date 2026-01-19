@@ -7,11 +7,13 @@ const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
  */
 export async function apiRequest(endpoint, options = {}) {
     const url = `${BASE_URL}${endpoint}`;
+    console.log(`📤 API Request: ${options.method || 'GET'} ${url}`);
 
     // Special Handling for Download (Blob)
     if (options.responseType === 'blob') {
         const res = await fetch(url, options);
         if (!res.ok) throw new Error(`Download Failed: ${res.statusText}`);
+        console.log(`📦 Blob downloaded from ${endpoint}`);
         return res.blob();
     }
 
@@ -28,6 +30,7 @@ export async function apiRequest(endpoint, options = {}) {
 
     try {
         const response = await fetch(url, config);
+        console.log(`📥 API Response: ${response.status} ${endpoint}`);
 
         if (response.status === 404) {
             throw new Error("404: Endpoint not found");
@@ -43,13 +46,15 @@ export async function apiRequest(endpoint, options = {}) {
 
         if (data && data.success === false) {
             const msg = data.error?.message || "Unknown API error";
+            console.error(`❌ API Error Response:`, data.error);
             throw new Error(msg);
         }
 
+        console.log(`✅ API Success:`, endpoint);
         return data.data;
 
     } catch (err) {
-        console.warn(`API Call Failed (${endpoint}):`, err);
+        console.error(`❌ API Call Failed (${endpoint}):`, err);
         throw err;
     }
 }

@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 venv/
+.venv/
+*.egg-info/
 .env
 
 # Database
@@ -13,6 +15,22 @@ venv/
 node_modules/
 dist/
 .DS_Store
+frontend/.env
 
 # MyLife Specific
 backend/storage/photos/
+backend/storage/backups_tmp/
+
+# Tauri
+frontend/src-tauri/target/
+frontend/src-tauri/Cargo.lock
+
+# Temp files
+*.log
+*.tmp
+*.png
+frontend/mylife_logo.png
+frontend/convert_logo.ps1
+frontend/create_logo.ps1
+frontend/src-tauri/create_icon.ps1
+frontend/src-tauri/icons/icon.png

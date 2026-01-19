@@ -105,31 +105,39 @@ function App() {
     const [retry, setRetry] = useState(0);
 
     useEffect(() => {
+        console.log('🔍 Starting backend health check...');
+
         // Health Check Loop
         const checkHealth = async () => {
             try {
-                // We use a raw fetch here to avoid the client.js error handling wrapper for this simple check
-                // But client.js api.get is fine too if it returns data.
-                // Let's use simple fetch to be robust against "failed to fetch"
-                const res = await fetch("http://127.0.0.1:8000/health");
+                const url = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+                console.log(`📡 Checking health: ${url}/health`);
+
+                const res = await fetch(`${url}/health`, {
+                    method: 'GET',
+                    cache: 'no-cache'
+                });
+
                 if (res.ok) {
+                    const data = await res.json();
+                    console.log('✅ Backend is ready:', data);
                     setBackendReady(true);
                     return;
+                } else {
+                    console.warn(`⚠️ Health check failed with status: ${res.status}`);
                 }
             } catch (e) {
-                // Ignore error, just retry
+                console.warn(`❌ Health check error (retry ${retry}):`, e.message);
             }
 
-            // Retry
-            const timeout = setTimeout(() => {
+            // Retry after 1 second
+            setTimeout(() => {
                 setRetry(r => r + 1);
-                checkHealth();
             }, 1000);
-            return () => clearTimeout(timeout);
         };
 
         checkHealth();
-    }, []);
+    }, [retry]);
 
     if (!backendReady) {
         return <LoadingSplash retryCount={retry} />;

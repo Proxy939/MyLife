@@ -2,8 +2,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import extract, desc
 from datetime import datetime
 import json
+import logging
 from . import models, schemas
 from .services.vector_store import vector_store
+
+logger = logging.getLogger(__name__)
 
 # Memories
 def get_memory(db: Session, memory_id: int):
@@ -36,7 +39,7 @@ def create_memory(db: Session, memory: schemas.MemoryCreate):
     try:
         vector_store.add_or_update(db_memory)
     except Exception as e:
-        print(f"Error updating vector store: {e}")
+        logger.error(f"Error updating vector store: {e}")
 
     return db_memory
 
@@ -61,7 +64,7 @@ def update_memory(db: Session, memory_id: int, memory: schemas.MemoryUpdate):
     try:
         vector_store.add_or_update(db_memory)
     except Exception as e:
-        print(f"Error updating vector store: {e}")
+        logger.error(f"Error updating vector store: {e}")
 
     return db_memory
 
@@ -74,7 +77,7 @@ def delete_memory(db: Session, memory_id: int):
         try:
             vector_store.remove(memory_id)
         except Exception as e:
-            print(f"Error updating vector store: {e}")
+            logger.error(f"Error updating vector store: {e}")
             
     return db_memory
 

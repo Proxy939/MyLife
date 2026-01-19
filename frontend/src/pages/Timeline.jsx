@@ -2,11 +2,10 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { api } from '../api/client';
 import MemoryCard from '../components/MemoryCard';
 import StatusMessage from '../components/StatusMessage';
-import { useOutletContext } from 'react-router-dom';
 import { Search, Filter, X } from 'lucide-react';
 
-export default function Timeline() {
-    const { selectedMonth } = useOutletContext();
+export default function Timeline({ month }) {
+    const selectedMonth = month;
     const [memories, setMemories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);

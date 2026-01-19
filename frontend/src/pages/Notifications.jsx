@@ -1,9 +1,9 @@
 import React from 'react';
-import { useNotifications } from '../context/NotificationContext';
+import { useNotificationContext } from '../context/NotificationContext';
 import { Bell, Trash2, Check, Info, AlertCircle, CheckCircle } from 'lucide-react';
 
 export default function Notifications() {
-    const { notifications, removeNotification, clearAll, markAllRead } = useNotifications();
+    const { notifications, removeNotification, clearNotifications, markAsRead } = useNotificationContext();
 
     const getIcon = (type) => {
         if (type === 'success') return <CheckCircle size={18} className="text-green-400" />;
@@ -25,13 +25,13 @@ export default function Notifications() {
                 {notifications.length > 0 && (
                     <div className="flex gap-2">
                         <button
-                            onClick={markAllRead}
+                            onClick={() => notifications.forEach(n => markAsRead(n.id))}
                             className="bg-os-panel border border-os-hover text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-colors"
                         >
                             <Check size={14} /> Mark All Read
                         </button>
                         <button
-                            onClick={clearAll}
+                            onClick={clearNotifications}
                             className="bg-os-panel border border-os-hover text-red-400 hover:bg-red-900/20 px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-colors"
                         >
                             <Trash2 size={14} /> Clear All

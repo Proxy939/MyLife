@@ -1,11 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain, Bell, Server } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useNotifications } from '../context/NotificationContext';
+import { useNotificationContext } from '../context/NotificationContext';
 
 export default function Layout({ children, onMonthChange, selectedMonth, rightPanel }) {
     const location = useLocation();
-    const { unreadCount } = useNotifications();
+    const { unreadCount } = useNotificationContext();
     const isActive = (path) => location.pathname === path ? "bg-os-accent text-white" : "text-gray-400 hover:text-white hover:bg-os-hover";
 
     const [isOnline, setIsOnline] = useState(navigator.onLine);

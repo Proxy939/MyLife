@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const NotificationContext = createContext();
+// Create context with default empty value (prevents null errors)
+const NotificationContext = createContext({
+    notifications: [],
+    addNotification: () => { },
+    removeNotification: () => { },
+    clearNotifications: () => { },
+    markAsRead: () => { },
+    unreadCount: 0
+});
 
 export function NotificationProvider({ children }) {
     const [notifications, setNotifications] = useState(() => {
@@ -8,46 +16,69 @@ export function NotificationProvider({ children }) {
             const stored = localStorage.getItem('mylife_notifications');
             return stored ? JSON.parse(stored) : [];
         } catch (e) {
+            console.error('Failed to load notifications from localStorage:', e);
             return [];
         }
     });
 
     useEffect(() => {
-        localStorage.setItem('mylife_notifications', JSON.stringify(notifications));
+        try {
+            localStorage.setItem('mylife_notifications', JSON.stringify(notifications));
+        } catch (e) {
+            console.error('Failed to save notifications to localStorage:', e);
+        }
     }, [notifications]);
 
     const addNotification = (message, type = 'info') => {
-        const newNotif = {
-            id: Date.now(),
+        const newNotification = {
+            id: Date.now() + Math.random(),
             message,
-            type, // 'info', 'success', 'error'
+            type,
             timestamp: new Date().toISOString(),
             read: false
         };
-        setNotifications(prev => [newNotif, ...prev]);
+        setNotifications(prev => [newNotification, ...prev]);
     };
 
     const removeNotification = (id) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
     };
 
-    const clearAll = () => {
+    const clearNotifications = () => {
         setNotifications([]);
     };
 
-    const markAllRead = () => {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    const markAsRead = (id) => {
+        setNotifications(prev => prev.map(n =>
+            n.id === id ? { ...n, read: true } : n
+        ));
     };
 
     const unreadCount = notifications.filter(n => !n.read).length;
 
+    const value = {
+        notifications,
+        addNotification,
+        removeNotification,
+        clearNotifications,
+        markAsRead,
+        unreadCount
+    };
+
     return (
-        <NotificationContext.Provider value={{ notifications, addNotification, removeNotification, clearAll, markAllRead, unreadCount }}>
+        <NotificationContext.Provider value={value}>
             {children}
         </NotificationContext.Provider>
     );
 }
 
-export function useNotifications() {
-    return useContext(NotificationContext);
+export function useNotificationContext() {
+    const context = useContext(NotificationContext);
+
+    // Safety check: if context is null/undefined, throw descriptive error
+    if (!context) {
+        throw new Error('useNotificationContext must be used within a NotificationProvider');
+    }
+
+    return context;
 }

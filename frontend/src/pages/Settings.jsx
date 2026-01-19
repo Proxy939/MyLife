@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import StatusMessage from '../components/StatusMessage';
 import { Cpu, Server, Save, Download, Upload, AlertTriangle, Archive, Shield, Lock, Key } from 'lucide-react';
-import { useNotifications } from '../context/NotificationContext';
+import { useNotificationContext } from '../context/NotificationContext';
 
 // Basic Hash Helper (Duplicate of LockScreen logic - ideally util)
 const hashPin = (pin) => {
@@ -16,7 +16,7 @@ const hashPin = (pin) => {
 };
 
 export default function Settings() {
-    const { addNotification } = useNotifications();
+    const { addNotification } = useNotificationContext();
     const [settings, setSettings] = useState({
         ai_provider: 'auto',
         local_model: 'none',

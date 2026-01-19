@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain, Bell, Server } from 'lucide-react';
+import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain, Bell, Server, Download } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNotificationContext } from '../context/NotificationContext';
 import FloatingParticles from './FloatingParticles';
@@ -89,6 +89,9 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
                                 {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-os-panel"></span>}
                             </div>
                             Notifications
+                        </Link>
+                        <Link to="/updates" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/updates')}`}>
+                            <Download size={18} /> Updates
                         </Link>
                         <Link to="/system" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/system')}`}>
                             <Server size={18} /> System Status

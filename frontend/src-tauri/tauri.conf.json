@@ -16,7 +16,18 @@
             "shell": {
                 "all": false,
                 "open": true
+            },
+            "updater": {
+                "active": true
             }
+        },
+        "updater": {
+            "active": true,
+            "endpoints": [
+                "https://github.com/YOUR_USERNAME/MyLife/releases/latest/download/latest.json"
+            ],
+            "dialog": false,
+            "pubkey": "PASTE_YOUR_PUBLIC_KEY_HERE_AFTER_GENERATING"
         },
         "bundle": {
             "active": true,

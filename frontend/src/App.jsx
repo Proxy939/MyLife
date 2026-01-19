@@ -15,6 +15,7 @@ import Notifications from './pages/Notifications';
 import TerminalLogin from './pages/TerminalLogin';
 import { useState, useEffect } from 'react';
 import { NotificationProvider } from './context/NotificationContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { api } from './api/client';
 import { Loader2 } from 'lucide-react';
 
@@ -161,11 +162,13 @@ function App() {
     }
 
     return (
-        <Router>
-            <NotificationProvider>
-                <AppContent />
-            </NotificationProvider>
-        </Router>
+        <ThemeProvider>
+            <Router>
+                <NotificationProvider>
+                    <AppContent />
+                </NotificationProvider>
+            </Router>
+        </ThemeProvider>
     );
 }
 

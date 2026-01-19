@@ -3,6 +3,7 @@ import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare
 import { useState, useEffect } from 'react';
 import { useNotificationContext } from '../context/NotificationContext';
 import FloatingParticles from './FloatingParticles';
+import ThemeSelector from './ThemeSelector';
 
 export default function Layout({ children, onMonthChange, selectedMonth, rightPanel }) {
     const location = useLocation();
@@ -31,10 +32,13 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
 
             {/* Sidebar */}
             <aside className="w-64 bg-os-panel border-r border-os-hover flex flex-col p-4 space-y-4 relative z-10">
-                <Link to="/" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 mb-2 flex items-center gap-2 hover:opacity-80 transition-opacity">
-                    <LayoutGrid size={24} className="text-blue-400" />
-                    MyLife
-                </Link>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                    <Link to="/" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400 flex items-center gap-2 hover:opacity-80 transition-opacity">
+                        <LayoutGrid size={24} className="text-blue-400" />
+                        MyLife
+                    </Link>
+                    <ThemeSelector />
+                </div>
 
                 {/* Offline Indicator */}
                 {!isOnline && (

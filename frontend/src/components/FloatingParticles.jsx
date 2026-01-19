@@ -12,7 +12,7 @@ export default function FloatingParticles() {
         canvas.height = window.innerHeight;
 
         const particles = [];
-        const particleCount = 50;
+        const particleCount = 150; // Increased from 50
 
         class Particle {
             constructor() {

@@ -279,6 +279,51 @@ graph LR
 - Unread badge indicators
 - Contextual notifications (backup, restore, settings)
 
+#### 11. **Premium UI & Theme System** 🎨
+- **Terminal-Style Login**: CRT-inspired green terminal with ASCII art logo
+- **Discord-Like Themes**: 6 beautiful preset themes + custom theme builder
+  - Midnight (default blue/purple)
+  - Ocean (cyan/teal)
+  - Sunset (orange/pink)
+  - Forest (green)
+  - Purple Dream (purple/magenta)
+  - Rose (red/pink)
+- **Custom Theme Builder**: Create your own color schemes with live preview
+- **Persistent Themes**: Saved to localStorage, applies on reload
+- **CSS Variables**: Instant theme switching across entire app
+
+#### 12. **Immersive Visual Effects** ✨
+- **Floating Particles**: 150 animated particles with glow effects
+- **3D Memory Cards**: 
+  - Interactive tilt based on mouse position
+  - Shimmer animation following cursor
+  - Mood-based gradient borders
+  - Staggered tag animations
+  - Sparkle icons on hover
+- **Enhanced Timeline**: 
+  - Vibrant gradient headers
+  - Glassmorphism effects
+  - Smooth fade-in animations
+  - Emoji-enhanced mood filters
+- **Ambient Background**: Subtle star-like particles creating depth
+
+#### 13. **AI Companion - Lyra** 🤖
+- **Emotional Support**: Active listening, validates emotions, celebrates successes
+- **Communication Skills**: Warm conversational tone, thoughtful questions
+- **Good Manners**: Respectful, kind, shows appreciation
+- **Life Navigation**: Pattern recognition, coping strategies, goal setting
+- **System Guidance**: Helps users understand MyLife features effectively
+- **Smart Responses**: Context-aware with mood pattern analysis
+
+#### 14. **Bundled Desktop Build** 📦
+- **Zero Installation**: No Python required for users
+- **PyInstaller Backend**: FastAPI bundled as `mylife-backend.exe`
+- **Auto-Start Backend**: Launches automatically on app start
+- **AppData Storage**: All data in `%APPDATA%\MyLife\` (Windows best practices)
+- **Single Installer**: One `.msi` file includes everything
+- **Smart Launcher**: Auto-detects dev vs production mode
+- **Graceful Shutdown**: Backend stops cleanly when app closes
+
 ---
 
 ## 🛠️ Technology Stack
@@ -413,7 +458,7 @@ npm run dev
 
 Frontend runs at: `http://localhost:5173`
 
-### Desktop Application Mode
+### Desktop Application Mode (Development)
 
 ```bash
 cd frontend
@@ -430,6 +475,35 @@ The desktop app automatically:
 2. Starts backend process if not found
 3. Shows splash screen while initializing
 4. Loads main UI when ready
+
+### Desktop Bundled Build (No Python Required) 🚀
+
+Build a complete Windows installer with bundled backend:
+
+```powershell
+# Option 1: Complete build script (recommended)
+.\build_desktop.ps1
+
+# Option 2: Manual steps
+cd backend
+pip install pyinstaller
+pyinstaller mylife-backend.spec
+Copy-Item dist\mylife-backend.exe ..\frontend\src-tauri\resources\
+
+cd ..\frontend
+npm run tauri build
+```
+
+**Output:** `frontend/src-tauri/target/release/bundle/msi/MyLife_*.msi`
+
+**Features:**
+- ✅ Single installer includes everything
+- ✅ No Python installation needed
+- ✅ Backend auto-starts/stops with app
+- ✅ Data stored in `%APPDATA%\MyLife\`
+- ✅ ~150-250 MB installer size
+
+See [BUILD_DESKTOP.md](BUILD_DESKTOP.md) for detailed instructions.
 
 ---
 
@@ -545,7 +619,7 @@ MyLife/
 │   ├── app/
 │   │   ├── __init__.py
 │   │   ├── main.py            # App entry point + scheduler setup
-│   │   ├── config.py          # Configuration management
+│   │   ├── config.py          # Configuration + AppData paths
 │   │   ├── database.py        # SQLAlchemy setup
 │   │   ├── models.py          # Database models (Memory, Settings, RecapCache)
 │   │   ├── schemas.py         # Pydantic schemas
@@ -559,7 +633,7 @@ MyLife/
 │   │   │   ├── media.py       # Photo uploads
 │   │   │   └── system.py      # System status
 │   │   └── services/          # Business logic
-│   │       ├── ai_router.py   # AI provider orchestration
+│   │       ├── ai_router.py   # AI provider orchestration (Lyra)
 │   │       ├── recap_service.py  # Recap generation
 │   │       ├── insights_service.py # Deep analysis
 │   │       ├── vector_store.py    # Semantic embeddings
@@ -567,44 +641,56 @@ MyLife/
 │   ├── storage/               # File storage
 │   │   ├── photos/            # Uploaded images
 │   │   └── backups_tmp/       # Temporary backup files
-│   └── requirements.txt       # Python dependencies
+│   ├── requirements.txt       # Python dependencies
+│   ├── mylife-backend.spec    # PyInstaller configuration
+│   └── create_exe.ps1         # Backend exe build script
 │
 ├── frontend/                   # React Frontend
 │   ├── src/
 │   │   ├── main.jsx           # React entry + PWA registration
 │   │   ├── App.jsx            # Root component + routing
-│   │   ├── index.css          # Global styles (Tailwind)
+│   │   ├── index.css          # Global styles (Tailwind + theme variables)
 │   │   ├── api/
 │   │   │   └── client.js      # API wrapper
 │   │   ├── components/        # Reusable components
 │   │   │   ├── Layout.jsx     # App shell (sidebar, main, panel)
 │   │   │   ├── RecapCard.jsx  # Monthly summary widget
+│   │   │   ├── MemoryCard.jsx # 3D interactive memory card
+│   │   │   ├── FloatingParticles.jsx # Background animation
+│   │   │   ├── ThemeSelector.jsx     # Theme switcher UI
 │   │   │   └── StatusMessage.jsx # Loading/error states
 │   │   ├── context/           # Global state
-│   │   │   └── NotificationContext.jsx
+│   │   │   ├── NotificationContext.jsx
+│   │   │   └── ThemeContext.jsx      # Theme management
 │   │   └── pages/             # Route pages
 │   │       ├── Timeline.jsx   # Home page (memory feed)
 │   │       ├── AddMemory.jsx  # Create memory form
 │   │       ├── MemoryDetail.jsx # Single memory view
 │   │       ├── SemanticSearch.jsx # AI search
-│   │       ├── MemoryChat.jsx     # AI chat
+│   │       ├── MemoryChat.jsx     # AI chat with Lyra
 │   │       ├── Analytics.jsx      # Charts & stats
 │   │       ├── Insights.jsx       # AI insights
 │   │       ├── Settings.jsx       # Configuration
 │   │       ├── SystemStatus.jsx   # Scheduler status
 │   │       ├── Notifications.jsx  # Notification center
+│   │       ├── TerminalLogin.jsx  # CRT-style login screen
 │   │       └── LockScreen.jsx     # PIN entry
 │   ├── src-tauri/             # Tauri Desktop App
 │   │   ├── src/
-│   │   │   └── main.rs        # Rust entry point
+│   │   │   └── main.rs        # Rust entry (smart backend launcher)
+│   │   ├── resources/         # Bundled files
+│   │   │   └── mylife-backend.exe  # (Created by build)
 │   │   ├── Cargo.toml         # Rust dependencies
 │   │   ├── build.rs           # Build script
 │   │   └── tauri.conf.json    # App configuration
 │   ├── public/                # Static assets
+│   ├── .env.production        # Production environment config
 │   ├── vite.config.js         # Vite configuration
 │   ├── tailwind.config.js     # Tailwind configuration
 │   └── package.json           # Node dependencies
 │
+├── build_desktop.ps1          # Complete desktop build script
+├── BUILD_DESKTOP.md           # Desktop build documentation
 ├── mylife.db                  # SQLite database (generated)
 ├── .gitignore
 ├── LICENSE

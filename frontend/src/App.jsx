@@ -107,20 +107,24 @@ function AppContent() {
             return <VaultRecovery />;
         }
 
-        // No vault - setup required
+        // No vault - setup required (unless user skipped)
         if (vaultStatus && !vaultStatus.vault_exists) {
-            return (
-                <ToastProvider>
-                    <CommandPalette />
-                    <Routes>
-                        <Route path="*" element={<VaultSetup />} />
-                    </Routes>
-                </ToastProvider>
-            );
+            const skipped = localStorage.getItem('vault_setup_skipped');
+            if (skipped !== 'true') {
+                return (
+                    <ToastProvider>
+                        <CommandPalette />
+                        <Routes>
+                            <Route path="*" element={<VaultSetup />} />
+                        </Routes>
+                    </ToastProvider>
+                );
+            }
+            // User skipped vault setup, allow them to continue
         }
 
-        // Vault locked - unlock required
-        if (vaultStatus && !vaultStatus.is_unlocked && vaultStatus.state === 'LOCKED') {
+        // Vault locked - unlock required (only if vault exists)
+        if (vaultStatus && vaultStatus.vault_exists && !vaultStatus.is_unlocked && vaultStatus.state === 'LOCKED') {
             return (
                 <ToastProvider>
                     <CommandPalette />

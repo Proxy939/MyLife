@@ -121,25 +121,41 @@ export default function VaultSetup() {
                         {/* Submit Button */}
                         <button
                             onClick={handleSetup}
-                            disabled={loading || !pin || !confirmPin}
-                            className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            disabled={loading || pin.length < 4 || pin !== confirmPin}
+                            className="w-full py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                         >
                             {loading ? (
-                                <>Creating Vault...</>
+                                <>
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                    Creating Vault...
+                                </>
                             ) : (
                                 <>
-                                    <Key size={20} />
+                                    <Lock size={18} />
                                     Create Vault
                                 </>
                             )}
                         </button>
 
-                        {/* Info */}
-                        <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                            <p className="text-xs text-blue-300">
-                                <strong>Important:</strong> Your PIN encrypts all your data. Make sure to remember it - there is no recovery without your PIN.
-                            </p>
-                        </div>
+                        {/* Skip Button */}
+                        <button
+                            onClick={() => {
+                                // Mark vault as skipped and navigate to main app
+                                localStorage.setItem('vault_setup_skipped', 'true');
+                                window.location.href = '/';
+                            }}
+                            className="w-full py-3 bg-transparent border border-gray-600 text-gray-400 rounded-lg font-medium hover:bg-gray-800 hover:text-white hover:border-gray-500 transition-all"
+                        >
+                            Skip for Now
+                        </button>
+
+                        <p className="text-xs text-blue-400 text-center mt-2">
+                            <strong>Important:</strong> Your PIN encrypts all your data. Make sure to remember it - there is no recovery without your PIN.
+                        </p>
+
+                        <p className="text-xs text-gray-500 text-center">
+                            You can create a vault later from Settings if you skip this step.
+                        </p>
                     </div>
                 </div>
             </div>

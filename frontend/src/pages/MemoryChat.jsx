@@ -53,14 +53,14 @@ export default function MemoryChat() {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-140px)]">
-            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+        <div className="flex flex-col h-[75vh] min-h-[500px] overflow-hidden">
+            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2 flex-shrink-0">
                 <MessageSquare className="text-teal-400" />
                 Memory Chat
             </h2>
 
             {/* Chat Area */}
-            <div className="flex-1 bg-os-panel border border-os-hover rounded-xl p-4 overflow-y-auto space-y-4 mb-4 shadow-inner">
+            <div className="flex-1 min-h-0 bg-os-panel border border-os-hover rounded-xl p-4 overflow-y-auto space-y-4 mb-4 shadow-inner">
                 {messages.map((msg, idx) => (
                     <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
 
@@ -71,7 +71,7 @@ export default function MemoryChat() {
                         </div>
 
                         <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === 'user' ? 'bg-os-accent text-white' :
-                                (msg.role === 'error' ? 'bg-red-900/50 text-red-200' : 'bg-os-hover text-gray-100')
+                            (msg.role === 'error' ? 'bg-red-900/50 text-red-200' : 'bg-os-hover text-gray-100')
                             }`}>
                             {msg.text}
 
@@ -111,13 +111,13 @@ export default function MemoryChat() {
             </div>
 
             {error && (
-                <div className="mb-4">
+                <div className="mb-4 flex-shrink-0">
                     <StatusMessage error={error} />
                 </div>
             )}
 
             {/* Input Area */}
-            <form onSubmit={handleSend} className="relative">
+            <form onSubmit={handleSend} className="relative flex-shrink-0">
                 <input
                     type="text"
                     placeholder="Ask about your memories..."

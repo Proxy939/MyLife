@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain, Bell, Server, Download, Lock, Puzzle, CheckSquare, Target, StickyNote, BookOpen, TrendingUp, Upload, Sparkles, Trash2, FileText } from 'lucide-react';
+import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain, Bell, Server, Download, Lock, Puzzle, CheckSquare, Target, StickyNote, BookOpen, TrendingUp, Upload, Sparkles, Trash2, FileText, FileBarChart } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNotificationContext } from '../context/NotificationContext';
 import FloatingParticles from './FloatingParticles';
@@ -79,6 +79,15 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
                         </Link>
                         <Link to="/chat" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/chat')}`}>
                             <MessageSquare size={18} /> Memory Chat
+                        </Link>
+                        <Link to="/coach" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/coach')}`}>
+                            <Brain size={18} /> AI Coach
+                        </Link>
+                        <Link to="/goals" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/goals')}`}>
+                            <Target size={18} /> Goals
+                        </Link>
+                        <Link to="/reports" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/reports')}`}>
+                            <FileBarChart size={18} /> Reports
                         </Link>
                     </div>
 

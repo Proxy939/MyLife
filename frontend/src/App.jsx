@@ -20,6 +20,9 @@ import Import from './pages/Import';
 import Cleanup from './pages/Cleanup';
 import Trash from './pages/Trash';
 import AuditLog from './pages/AuditLog';
+import Coach from './pages/Coach';
+import GoalsDashboard from './pages/GoalsDashboard';
+import ReportsDashboard from './pages/ReportsDashboard';
 import TerminalLogin from './pages/TerminalLogin';
 import VaultSetup from './pages/VaultSetup';
 import VaultUnlock from './pages/VaultUnlock';
@@ -148,6 +151,9 @@ function AppContent() {
                             <Route path="/chat" element={<MemoryChat />} />
                             <Route path="/settings" element={<Settings />} />
                             <Route path="/plugins" element={<Plugins />} />
+                            <Route path="/coach" element={<Coach />} />
+                            <Route path="/goals" element={<GoalsDashboard />} />
+                            <Route path="/reports" element={<ReportsDashboard />} />
 
                             {/* Dynamic Plugin Routes */}
                             {getEnabledPlugins().map(plugin => (

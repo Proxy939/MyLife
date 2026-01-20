@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import memories, recap, settings, media, ai, backup, system, vault, sync, journal, import_data, cleanup, search, trash, versions
+from .routers import memories, recap, settings, media, ai, backup, system, vault, sync, journal, import_data, cleanup, search, trash, versions, goals, ai_coach, reports
 from .database import Base
 from .config import APP_DATA_DIR
 from . import models
@@ -61,6 +61,12 @@ app.include_router(sync.router)
 app.include_router(journal.router)
 app.include_router(import_data.router)
 app.include_router(cleanup.router)
+app.include_router(search.router)
+app.include_router(trash.router)
+app.include_router(versions.router)
+app.include_router(goals.router)
+app.include_router(ai_coach.router)
+app.include_router(reports.router)
 app.include_router(memories.router)
 app.include_router(recap.router)
 app.include_router(settings.router)

@@ -77,3 +77,17 @@ class AuditLog(Base):
     
     def __repr__(self):
         return f"<AuditLog(id={self.id}, action={self.action_type})>"
+
+class Goal(Base):
+    __tablename__ = 'goals'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, default="")
+    status = Column(String, default="active")  # active/completed
+    source_memory_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    completed_at = Column(String, nullable=True)
+    
+    def __repr__(self):
+        return f"<Goal(id={self.id}, title={self.title}, status={self.status})>"

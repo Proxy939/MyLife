@@ -13,6 +13,7 @@ import Insights from './pages/Insights';
 import SystemStatus from './pages/SystemStatus';
 import Notifications from './pages/Notifications';
 import Updates from './pages/Updates';
+import Plugins from './pages/Plugins';
 import TerminalLogin from './pages/TerminalLogin';
 import VaultSetup from './pages/VaultSetup';
 import VaultUnlock from './pages/VaultUnlock';
@@ -22,6 +23,8 @@ import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { api } from './api/client';
 import { Loader2 } from 'lucide-react';
+import { getEnabledPlugins } from './plugins/registry';
+import PluginLoader from './plugins/PluginLoader';
 
 function ProtectedRoute({ children, isLocked }) {
     if (isLocked) {
@@ -138,6 +141,16 @@ function AppContent() {
                             <Route path="/search" element={<SemanticSearch />} />
                             <Route path="/chat" element={<MemoryChat />} />
                             <Route path="/settings" element={<Settings />} />
+                            <Route path="/plugins" element={<Plugins />} />
+
+                            {/* Dynamic Plugin Routes */}
+                            {getEnabledPlugins().map(plugin => (
+                                <Route
+                                    key={plugin.id}
+                                    path={plugin.routePath}
+                                    element={<PluginLoader plugin={plugin} />}
+                                />
+                            ))}
                         </Routes>
                     </Layout>
                 </ProtectedRoute>

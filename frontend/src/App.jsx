@@ -98,82 +98,89 @@ function AppContent() {
     };
 
     // Wait for both checks
-    if (!lockChecked || !vaultChecked) {
-        return <LoadingSplash retryCount={0} />;
-    }
-
-    // Vault routing priority
-    if (vaultStatus) {
+    // Vault check flow
+    if (!vaultChecked) {
+        return <LoadingSplash retryCount={0} />; // Assuming retryCount is 0 for initial vault check
+    } else {
         // Vault unavailable - show recovery
-        if (vaultStatus.state === 'UNAVAILABLE') {
+        if (vaultStatus && vaultStatus.state === 'UNAVAILABLE') {
             return <VaultRecovery />;
         }
 
         // No vault - setup required
-        if (!vaultStatus.vault_exists) {
+        if (vaultStatus && !vaultStatus.vault_exists) {
             return (
-                <Routes>
-                    <Route path="*" element={<VaultSetup />} />
-                </Routes>
+                <ToastProvider>
+                    <CommandPalette />
+                    <Routes>
+                        <Route path="*" element={<VaultSetup />} />
+                    </Routes>
+                </ToastProvider>
             );
         }
 
         // Vault locked - unlock required
-        if (!vaultStatus.is_unlocked && vaultStatus.state === 'LOCKED') {
+        if (vaultStatus && !vaultStatus.is_unlocked && vaultStatus.state === 'LOCKED') {
             return (
-                <Routes>
-                    <Route path="*" element={<VaultUnlock />} />
-                </Routes>
+                <ToastProvider>
+                    <CommandPalette />
+                    <Routes>
+                        <Route path="*" element={<VaultUnlock />} />
+                    </Routes>
+                </ToastProvider>
             );
         }
     }
 
     // Normal app flow
     return (
-        <Routes>
-            <Route path="/lock" element={
-                isLocked ? <LockScreen onUnlock={handleUnlock} /> : <Navigate to="/" replace />
-            } />
+        <ToastProvider>
+            <CommandPalette />
+            <Routes>
+                <Route path="/lock" element={
+                    isLocked ? <LockScreen onUnlock={handleUnlock} /> : <Navigate to="/" replace />
+                } />
 
-            <Route path="/*" element={
-                <ProtectedRoute isLocked={isLocked}>
-                    <Layout
-                        onMonthChange={setSelectedMonth}
-                        selectedMonth={selectedMonth}
-                        rightPanel={<RecapCard month={selectedMonth} />}
-                    >
-                        <Routes>
-                            <Route path="/" element={<Timeline month={selectedMonth} />} />
-                            <Route path="/analytics" element={<Analytics />} />
-                            <Route path="/insights" element={<Insights />} />
-                            <Route path="/system" element={<SystemStatus />} />
-                            <Route path="/notifications" element={<Notifications />} />
-                            <Route path="/updates" element={<Updates />} />
-                            <Route path="/add" element={<AddMemory />} />
-                            <Route path="/memory/:id" element={<MemoryDetail />} />
-                            <Route path="/search" element={<SemanticSearch />} />
-                            <Route path="/chat" element={<MemoryChat />} />
-                            <Route path="/settings" element={<Settings />} />
-                            <Route path="/plugins" element={<Plugins />} />
-                            <Route path="/coach" element={<Coach />} />
-                            <Route path="/goals" element={<GoalsDashboard />} />
-                            <Route path="/reports" element={<ReportsDashboard />} />
-                            <Route path="/sync" element={<SyncPage />} />
-                            <Route path="/diagnostics" element={<DiagnosticsPage />} />
+                <Route path="/*" element={
+                    <ProtectedRoute isLocked={isLocked}>
+                        <Layout
+                            onMonthChange={setSelectedMonth}
+                            selectedMonth={selectedMonth}
+                            rightPanel={<RecapCard month={selectedMonth} />}
+                        >
+                            <Routes>
+                                <Route path="/" element={<Timeline month={selectedMonth} />} />
+                                <Route path="/analytics" element={<Analytics />} />
+                                <Route path="/insights" element={<Insights />} />
+                                <Route path="/system" element={<SystemStatus />} />
+                                <Route path="/notifications" element={<Notifications />} />
+                                <Route path="/updates" element={<Updates />} />
+                                <Route path="/add" element={<AddMemory />} />
+                                <Route path="/memory/:id" element={<MemoryDetail />} />
+                                <Route path="/search" element={<SemanticSearch />} />
+                                <Route path="/chat" element={<MemoryChat />} />
+                                <Route path="/settings" element={<Settings />} />
+                                <Route path="/plugins" element={<Plugins />} />
+                                <Route path="/coach" element={<Coach />} />
+                                <Route path="/goals" element={<GoalsDashboard />} />
+                                <Route path="/reports" element={<ReportsDashboard />} />
+                                <Route path="/sync" element={<SyncPage />} />
+                                <Route path="/diagnostics" element={<DiagnosticsPage />} />
 
-                            {/* Dynamic Plugin Routes */}
-                            {getEnabledPlugins().map(plugin => (
-                                <Route
-                                    key={plugin.id}
-                                    path={plugin.routePath}
-                                    element={<PluginLoader plugin={plugin} />}
-                                />
-                            ))}
-                        </Routes>
-                    </Layout>
-                </ProtectedRoute>
-            } />
-        </Routes>
+                                {/* Dynamic Plugin Routes */}
+                                {getEnabledPlugins().map(plugin => (
+                                    <Route
+                                        key={plugin.id}
+                                        path={plugin.routePath}
+                                        element={<PluginLoader plugin={plugin} />}
+                                    />
+                                ))}
+                            </Routes>
+                        </Layout>
+                    </ProtectedRoute>
+                } />
+            </Routes>
+        </ToastProvider>
     );
 }
 

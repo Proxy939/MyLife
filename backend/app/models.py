@@ -91,3 +91,17 @@ class Goal(Base):
     
     def __repr__(self):
         return f"<Goal(id={self.id}, title={self.title}, status={self.status})>"
+
+class SyncState(Base):
+    __tablename__ = 'sync_state'
+    
+    id = Column(Integer, primary_key=True, index=True, default=1)
+    device_id = Column(String, nullable=False)
+    last_push_at = Column(String, nullable=True)
+    last_pull_at = Column(String, nullable=True)
+    last_sync_hash = Column(String, nullable=True)
+    last_sync_file_id = Column(String, nullable=True)
+    last_error = Column(Text, nullable=True)
+    
+    def __repr__(self):
+        return f"<SyncState(device_id={self.device_id})>"

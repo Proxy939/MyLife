@@ -121,6 +121,9 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
                         <Link to="/import" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/import')}`}>
                             <Upload size={18} /> Import
                         </Link>
+                        <Link to="/sync" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/sync')}`}>
+                            <RefreshCw size={18} /> Sync
+                        </Link>
                         <Link to="/cleanup" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/cleanup')}`}>
                             <Sparkles size={18} /> Cleanup
                         </Link>

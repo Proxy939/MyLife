@@ -1,8 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from app.services.google_drive_service import get_drive_service
-from app.services.vault_service import get_vault_service
 from app.schemas import APIResponse
+from app.services.sync_service import sync_service
+from app.services.google_drive_service import get_drive_service
+from app.database import SessionLocal
+from app.middleware.vault_middleware import require_unlocked_vault
 from pathlib import Path
 import logging
 import tempfile
@@ -13,201 +16,295 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 
-class PullRequest(BaseModel):
-    confirm_overwrite: bool
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+class ConflictResolveRequest(BaseModel):
+    strategy: str  # keep_local, use_remote, merge
+    remote_snapshot_path: str = None
 
 
 @router.get("/status", response_model=APIResponse[dict])
-def get_sync_status():
-    """Get Google Drive sync status - never crashes"""
+def get_sync_status(db: Session = Depends(get_db)):
+    """Get sync status and device info"""
     try:
+        sync_state = sync_service.get_or_create_sync_state(db)
         drive_svc = get_drive_service()
-        status = drive_svc.get_status()
+        drive_status = drive_svc.get_status()
         
-        return APIResponse(
-            success=True,
-            data=status
-        )
-        
-    except Exception as e:
-        logger.error(f"Sync status error (non-fatal): {e}")
         return APIResponse(
             success=True,
             data={
-                'connected': False,
-                'last_backup_name': None,
-                'last_backup_time': None,
-                'last_error': str(e)
+                'device_id': sync_state.device_id,
+                'last_push_at': sync_state.last_push_at,
+                'last_pull_at': sync_state.last_pull_at,
+                'last_sync_hash': sync_state.last_sync_hash,
+                'last_error': sync_state.last_error,
+                'drive_connected': drive_status.get('connected', False),
+                'drive_last_backup': drive_status.get('last_backup_name')
             }
+        )
+        
+    except Exception as e:
+        logger.error(f"Sync status error: {e}")
+        return APIResponse(
+            success=False,
+            error={'message': 'Failed to get sync status', 'details': str(e)}
         )
 
 
-@router.post("/connect", response_model=APIResponse[dict])
-def connect_google_drive():
-    """Connect to Google Drive via OAuth - safe if it fails"""
+@router.post("/snapshot/export", response_model=APIResponse[dict], dependencies=[Depends(require_unlocked_vault)])
+def export_snapshot(db: Session = Depends(get_db)):
+    """Export encrypted snapshot package"""
     try:
-        drive_svc = get_drive_service()
-        success, error = drive_svc.connect()
+        result = sync_service.export_snapshot(db)
         
-        if not success:
+        if result['success']:
+            return APIResponse(
+                success=True,
+                data={
+                    'snapshot_path': result['snapshot_path'],
+                    'sync_hash': result['sync_hash'],
+                    'size_mb': result['size_mb'],
+                    'message': 'Snapshot exported successfully'
+                }
+            )
+        else:
+            return APIResponse(
+                success=False,
+                error={'message': result.get('error', 'Export failed')}
+            )
+            
+    except Exception as e:
+        logger.error(f"Export snapshot error: {e}")
+        return APIResponse(
+            success=False,
+            error={'message': 'Failed to export snapshot', 'details': str(e)}
+        )
+
+
+@router.post("/snapshot/import", response_model=APIResponse[dict], dependencies=[Depends(require_unlocked_vault)])
+async def import_snapshot(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Import encrypted snapshot and detect conflicts"""
+    try:
+        # Save uploaded file to temp location
+        temp_dir = Path(tempfile.gettempdir())
+        temp_file = temp_dir / f"import_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        
+        with open(temp_file, 'wb') as f:
+            content = await file.read()
+            f.write(content)
+        
+        # Import snapshot
+        result = sync_service.import_snapshot(db, str(temp_file))
+        
+        # Cleanup
+        if temp_file.exists():
+            temp_file.unlink()
+        
+        if result['success']:
+            return APIResponse(
+                success=True,
+                data={
+                    'message': result['message'],
+                    'sync_hash': result.get('sync_hash')
+                }
+            )
+        elif result.get('conflict'):
             return APIResponse(
                 success=False,
                 error={
-                    'message': 'Failed to connect to Google Drive',
-                    'details': error or 'OAuth flow failed'
+                    'message': result['message'],
+                    'conflict': True,
+                    'local_hash': result['local_hash'],
+                    'remote_hash': result['remote_hash']
                 }
             )
+        else:
+            return APIResponse(
+                success=False,
+                error={'message': result.get('error', 'Import failed')}
+            )
+            
+    except Exception as e:
+        logger.error(f"Import snapshot error: {e}")
+        return APIResponse(
+            success=False,
+            error={'message': 'Failed to import snapshot', 'details': str(e)}
+        )
+
+
+@router.get("/conflicts", response_model=APIResponse[dict], dependencies=[Depends(require_unlocked_vault)])
+def get_conflicts(db: Session = Depends(get_db)):
+    """Get list of sync conflicts"""
+    try:
+        conflicts = sync_service.detect_conflicts(db)
         
         return APIResponse(
             success=True,
-            data={'connected': True, 'message': 'Successfully connected to Google Drive'}
+            data={
+                'conflicts': conflicts,
+                'count': len(conflicts)
+            }
         )
         
     except Exception as e:
-        logger.error(f"Connect error (non-fatal): {e}")
+        logger.error(f"Get conflicts error: {e}")
         return APIResponse(
             success=False,
-            error={
-                'message': 'Failed to connect to Google Drive',
-                'details': str(e)
-            }
+            error={'message': 'Failed to get conflicts', 'details': str(e)}
         )
 
 
-@router.post("/push", response_model=APIResponse[dict])
-def push_backup_to_drive():
-    """Upload encrypted backup to Google Drive - safe if it fails"""
+@router.post("/conflicts/resolve", response_model=APIResponse[dict], dependencies=[Depends(require_unlocked_vault)])
+def resolve_conflict(req: ConflictResolveRequest, db: Session = Depends(get_db)):
+    """Resolve sync conflict"""
     try:
-        # Generate emergency export
-        from app.routers.vault import emergency_export
+        result = sync_service.resolve_conflict(db, req.strategy, req.remote_snapshot_path)
         
-        # Create temp file
-        temp_dir = Path(tempfile.gettempdir())
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        temp_backup = temp_dir / f"mylife_backup_{timestamp}.zip"
+        if result['success']:
+            return APIResponse(
+                success=True,
+                data={'message': result['message']}
+            )
+        else:
+            return APIResponse(
+                success=False,
+                error={'message': result.get('error', 'Resolution failed')}
+            )
+            
+    except Exception as e:
+        logger.error(f"Resolve conflict error: {e}")
+        return APIResponse(
+            success=False,
+            error={'message': 'Failed to resolve conflict', 'details': str(e)}
+        )
+
+
+@router.post("/push", response_model=APIResponse[dict], dependencies=[Depends(require_unlocked_vault)])
+def push_to_drive(db: Session = Depends(get_db)):
+    """Export snapshot and push to Google Drive"""
+    try:
+        # Export snapshot
+        export_result = sync_service.export_snapshot(db)
         
+        if not export_result['success']:
+            return APIResponse(
+                success=False,
+                error={'message': export_result.get('error', 'Export failed')}
+            )
+        
+        snapshot_path = Path(export_result['snapshot_path'])
+        
+        # Upload to Google Drive
+        drive_svc = get_drive_service()
+        upload_success, error, file_info = drive_svc.upload_backup(snapshot_path)
+        
+        if not upload_success:
+            return APIResponse(
+                success=False,
+                error={'message': 'Failed to upload to Google Drive', 'details': error}
+            )
+        
+        # Update sync state
+        sync_state = sync_service.get_or_create_sync_state(db)
+        sync_state.last_push_at = datetime.datetime.now().isoformat()
+        sync_state.last_sync_file_id = file_info.get('id') if file_info else None
+        db.commit()
+        
+        return APIResponse(
+            success=True,
+            data={
+                'message': 'Pushed to Google Drive successfully',
+                'file_info': file_info,
+                'size_mb': export_result['size_mb']
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Push to drive error: {e}")
+        
+        # Update error in sync state
         try:
-            # Get vault service and create export
-            vault_svc = get_vault_service()
-            files_to_export = vault_svc.emergency_export_files()
-            
-            if not files_to_export:
-                return APIResponse(
-                    success=False,
-                    error={'message': 'No vault files found to backup'}
-                )
-            
-            # Create ZIP
-            import zipfile
-            import json
-            
-            with zipfile.ZipFile(temp_backup, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                # Add metadata
-                metadata = {
-                    "app_name": "MyLife",
-                    "version": "0.1.0",
-                    "exported_at": datetime.datetime.now().isoformat(),
-                    "backup_type": "google_drive_sync"
-                }
-                zip_file.writestr("metadata.json", json.dumps(metadata, indent=2))
-                
-                # Add vault files
-                for file_path in files_to_export:
-                    rel_path = file_path.relative_to(vault_svc.vault_dir)
-                    arcname = f"vault/{rel_path}"
-                    zip_file.write(file_path, arcname)
-            
-            # Upload to Google Drive
-            drive_svc = get_drive_service()
-            upload_success, error, file_info = drive_svc.upload_backup(temp_backup)
-            
-            if not upload_success:
-                return APIResponse(
-                    success=False,
-                    error={
-                        'message': 'Failed to upload backup to Google Drive',
-                        'details': error
-                    }
-                )
+            sync_state = sync_service.get_or_create_sync_state(db)
+            sync_state.last_error = str(e)
+            db.commit()
+        except:
+            pass
+        
+        return APIResponse(
+            success=False,
+            error={'message': 'Failed to push', 'details': str(e)}
+        )
+
+
+@router.post("/pull", response_model=APIResponse[dict], dependencies=[Depends(require_unlocked_vault)])
+def pull_from_drive(db: Session = Depends(get_db)):
+    """Pull latest snapshot from Google Drive"""
+    try:
+        # Download from Google Drive
+        drive_svc = get_drive_service()
+        
+        temp_dir = Path(tempfile.gettempdir())
+        temp_file = temp_dir / f"pull_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        
+        download_success, error, file_name = drive_svc.download_latest_backup(temp_file)
+        
+        if not download_success:
+            return APIResponse(
+                success=False,
+                error={'message': 'Failed to download from Google Drive', 'details': error}
+            )
+        
+        # Import snapshot
+        import_result = sync_service.import_snapshot(db, str(temp_file))
+        
+        # Cleanup
+        if temp_file.exists():
+            temp_file.unlink()
+        
+        if import_result['success']:
+            # Update sync state
+            sync_state = sync_service.get_or_create_sync_state(db)
+            sync_state.last_pull_at = datetime.datetime.now().isoformat()
+            db.commit()
             
             return APIResponse(
                 success=True,
-                data={
-                    'message': 'Backup uploaded successfully',
-                    'file_info': file_info
-                }
+                data={'message': 'Pulled from Google Drive successfully'}
             )
-            
-        finally:
-            # Clean up temp file
-            if temp_backup.exists():
-                temp_backup.unlink()
-        
-    except Exception as e:
-        logger.error(f"Push backup error (non-fatal): {e}")
-        return APIResponse(
-            success=False,
-            error={
-                'message': 'Failed to push backup',
-                'details': str(e)
-            }
-        )
-
-
-@router.post("/pull", response_model=APIResponse[dict])
-def pull_backup_from_drive(req: PullRequest):
-    """Download and restore backup from Google Drive - safe if it fails"""
-    try:
-        # Check confirmation
-        if not req.confirm_overwrite:
+        elif import_result.get('conflict'):
             return APIResponse(
                 success=False,
                 error={
-                    'message': 'Confirmation required',
-                    'details': 'You must confirm overwrite by setting confirm_overwrite=true'
+                    'message': 'Conflict detected',
+                    'conflict': True,
+                    'details': import_result['message']
                 }
             )
-        
-        # Create temp file for download
-        temp_dir = Path(tempfile.gettempdir())
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        temp_download = temp_dir / f"mylife_restore_{timestamp}.zip"
-        
-        try:
-            # Download from Google Drive
-            drive_svc = get_drive_service()
-            download_success, error, file_name = drive_svc.download_latest_backup(temp_download)
-            
-            if not download_success:
-                return APIResponse(
-                    success=False,
-                    error={
-                        'message': 'Failed to download backup from Google Drive',
-                        'details': error
-                    }
-                )
-            
-            # TODO: Implement restore logic
-            # For now, just confirm download worked
+        else:
             return APIResponse(
-                success=True,
-                data={
-                    'message': f'Backup downloaded: {file_name}',
-                    'note': 'Restore functionality will be implemented in next update',
-                    'downloaded_file': file_name
-                }
+                success=False,
+                error={'message': import_result.get('error', 'Import failed')}
             )
             
-        finally:
-            # Keep temp_download for now (manual restore)
+    except Exception as e:
+        logger.error(f"Pull from drive error: {e}")
+        
+        # Update error in sync state
+        try:
+            sync_state = sync_service.get_or_create_sync_state(db)
+            sync_state.last_error = str(e)
+            db.commit()
+        except:
             pass
         
-    except Exception as e:
-        logger.error(f"Pull backup error (non-fatal): {e}")
         return APIResponse(
             success=False,
-            error={
-                'message': 'Failed to pull backup',
-                'details': str(e)
-            }
+            error={'message': 'Failed to pull', 'details': str(e)}
         )

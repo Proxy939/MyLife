@@ -23,6 +23,7 @@ import AuditLog from './pages/AuditLog';
 import Coach from './pages/Coach';
 import GoalsDashboard from './pages/GoalsDashboard';
 import ReportsDashboard from './pages/ReportsDashboard';
+import SyncPage from './pages/SyncPage';
 import TerminalLogin from './pages/TerminalLogin';
 import VaultSetup from './pages/VaultSetup';
 import VaultUnlock from './pages/VaultUnlock';
@@ -154,6 +155,7 @@ function AppContent() {
                             <Route path="/coach" element={<Coach />} />
                             <Route path="/goals" element={<GoalsDashboard />} />
                             <Route path="/reports" element={<ReportsDashboard />} />
+                            <Route path="/sync" element={<SyncPage />} />
 
                             {/* Dynamic Plugin Routes */}
                             {getEnabledPlugins().map(plugin => (

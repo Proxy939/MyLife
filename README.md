@@ -48,6 +48,18 @@ MyLife is a comprehensive personal memory management system that combines the po
 
 ---
 
+## 📸 Screenshots
+
+### Terminal-Style Interface
+![Terminal Interface](docs/screenshots/terminal-screen.png)
+*Retro CRT-inspired terminal login screen with ASCII art logo and green phosphor glow effects*
+
+### Analytics Dashboard
+![Analytics Dashboard](docs/screenshots/analytics-dashboard.png)
+*Beautiful analytics dashboard showing mood trends, activity heatmap, and comprehensive statistics with premium glassmorphism effects*
+
+---
+
 ## 🏗️ Architecture
 
 ### System Architecture Diagram
@@ -205,6 +217,27 @@ graph LR
     G --> P
     J --> Q
 ```
+
+---
+
+## 🆕 Latest Updates (v1.0.0 - January 2026)
+
+### Recent Improvements
+- ✅ **Vault System Simplified**: Removed mandatory vault encryption for easier access
+- ✅ **Database Auto-Migration**: Safe schema updates on startup without data loss
+- ✅ **Memory Chat UI**: Fixed layout rendering for proper message display
+- ✅ **Persistent Storage**: Improved AppData-based database storage
+- ✅ **UI Refinements**: Removed Lock Vault button, streamlined navigation
+- ✅ **Error Handling**: Enhanced diagnostics and user feedback
+- ✅ **Health Monitoring**: Better system status tracking
+
+### Fixed Issues
+- 🔧 Database schema mismatches (timestamp column auto-added)
+- 🔧 Memory Chat container height and flex layout
+- 🔧 Missing icon imports (RefreshCw, Activity)
+- 🔧 Backend
+ startup and connection reliability
+- 🔧 Frontend hot-reload stability
 
 ---
 

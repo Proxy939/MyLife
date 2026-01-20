@@ -54,30 +54,6 @@ function AppContent() {
     const [isLocked, setIsLocked] = useState(false);
     const [lockChecked, setLockChecked] = useState(false);
 
-    // Vault state
-    const [vaultStatus, setVaultStatus] = useState(null);
-    const [vaultChecked, setVaultChecked] = useState(false);
-
-    // Check vault status on mount
-    useEffect(() => {
-        const checkVault = async () => {
-            try {
-                const res = await fetch('http://127.0.0.1:8000/vault/status');
-                const data = await res.json();
-
-                if (data.success) {
-                    setVaultStatus(data.data);
-                }
-            } catch (err) {
-                console.error('Failed to check vault status', err);
-            } finally {
-                setVaultChecked(true);
-            }
-        };
-
-        checkVault();
-    }, []);
-
     useEffect(() => {
         const enabled = localStorage.getItem('mylife_app_lock_enabled') === 'true';
         const sessionUnlocked = sessionStorage.getItem('mylife_session_unlocked');
@@ -97,46 +73,12 @@ function AppContent() {
         setIsLocked(false);
     };
 
-    // Wait for both checks
-    // Vault check flow
-    if (!vaultChecked) {
-        return <LoadingSplash retryCount={0} />; // Assuming retryCount is 0 for initial vault check
-    } else {
-        // Vault unavailable - show recovery
-        if (vaultStatus && vaultStatus.state === 'UNAVAILABLE') {
-            return <VaultRecovery />;
-        }
-
-        // No vault - setup required (unless user skipped)
-        if (vaultStatus && !vaultStatus.vault_exists) {
-            const skipped = localStorage.getItem('vault_setup_skipped');
-            if (skipped !== 'true') {
-                return (
-                    <ToastProvider>
-                        <CommandPalette />
-                        <Routes>
-                            <Route path="*" element={<VaultSetup />} />
-                        </Routes>
-                    </ToastProvider>
-                );
-            }
-            // User skipped vault setup, allow them to continue
-        }
-
-        // Vault locked - unlock required (only if vault exists)
-        if (vaultStatus && vaultStatus.vault_exists && !vaultStatus.is_unlocked && vaultStatus.state === 'LOCKED') {
-            return (
-                <ToastProvider>
-                    <CommandPalette />
-                    <Routes>
-                        <Route path="*" element={<VaultUnlock />} />
-                    </Routes>
-                </ToastProvider>
-            );
-        }
+    // Wait for lock check
+    if (!lockChecked) {
+        return <LoadingSplash retryCount={0} />;
     }
 
-    // Normal app flow
+    // Main app flow (vault features disabled)
     return (
         <ToastProvider>
             <CommandPalette />

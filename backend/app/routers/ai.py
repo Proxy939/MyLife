@@ -7,9 +7,8 @@ from ..database import SessionLocal
 from ..services.vector_store import vector_store
 from ..services.ai_router import ai_router_service
 from ..services.insights_service import insights_service
-from ..middleware.vault_middleware import require_unlocked_vault
 
-router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(require_unlocked_vault)])
+router = APIRouter(prefix="/ai", tags=["ai"])
 
 def get_db():
     db = SessionLocal()

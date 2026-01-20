@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain, Bell, Server, Download, Lock, Puzzle, CheckSquare, Target, StickyNote, BookOpen, TrendingUp, Upload, Sparkles, Trash2, FileText, FileBarChart } from 'lucide-react';
+import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain, Bell, Server, Download, Lock, Puzzle, CheckSquare, Target, StickyNote, BookOpen, TrendingUp, Upload, Sparkles, Trash2, FileText, FileBarChart, RefreshCw, Activity } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNotificationContext } from '../context/NotificationContext';
 import FloatingParticles from './FloatingParticles';

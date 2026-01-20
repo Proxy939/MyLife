@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain, Bell, Server, Download, Lock, Puzzle, CheckSquare, Target, StickyNote, BookOpen, TrendingUp, Upload, Sparkles } from 'lucide-react';
+import { Home, PlusCircle, Settings, Calendar, LayoutGrid, Search, MessageSquare, Wifi, WifiOff, BarChart2, Brain, Bell, Server, Download, Lock, Puzzle, CheckSquare, Target, StickyNote, BookOpen, TrendingUp, Upload, Sparkles, Trash2, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNotificationContext } from '../context/NotificationContext';
 import FloatingParticles from './FloatingParticles';
@@ -114,6 +114,12 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
                         </Link>
                         <Link to="/cleanup" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/cleanup')}`}>
                             <Sparkles size={18} /> Cleanup
+                        </Link>
+                        <Link to="/trash" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/trash')}`}>
+                            <Trash2 size={18} /> Trash
+                        </Link>
+                        <Link to="/audit" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/audit')}`}>
+                            <FileText size={18} /> Audit Log
                         </Link>
                         <Link to="/plugins" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/plugins')}`}>
                             <Puzzle size={18} /> Plugins

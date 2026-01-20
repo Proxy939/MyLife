@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import memories, recap, settings, media, ai, backup, system, vault, sync, journal, import_data, cleanup, search
+from .routers import memories, recap, settings, media, ai, backup, system, vault, sync, journal, import_data, cleanup, search, trash, versions
 from .database import Base
 from .config import APP_DATA_DIR
 from . import models

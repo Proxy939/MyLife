@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import memories, recap, settings, media, ai, backup, system, vault, sync
+from .routers import memories, recap, settings, media, ai, backup, system, vault, sync, journal
 from .database import Base
 from .config import APP_DATA_DIR
 from . import models
@@ -58,6 +58,7 @@ def health():
 # Routers
 app.include_router(vault.router)
 app.include_router(sync.router)
+app.include_router(journal.router)
 app.include_router(memories.router)
 app.include_router(recap.router)
 app.include_router(settings.router)

@@ -17,6 +17,7 @@ import Plugins from './pages/Plugins';
 import Journal from './pages/Journal';
 import WeeklyReview from './pages/WeeklyReview';
 import Import from './pages/Import';
+import Cleanup from './pages/Cleanup';
 import TerminalLogin from './pages/TerminalLogin';
 import VaultSetup from './pages/VaultSetup';
 import VaultUnlock from './pages/VaultUnlock';

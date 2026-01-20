@@ -1,62 +1,102 @@
-import os
-import shutil
 import uuid
 from typing import List
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi.responses import Response
+from pathlib import Path
 from .. import schemas
+from ..services.vault_service import get_vault_service, vault_state
+from ..middleware.vault_middleware import require_unlocked_vault
 
 router = APIRouter(prefix="/media", tags=["media"])
 
-UPLOAD_DIR = "backend/storage/photos"
-MAX_FILE_SIZE = 5 * 1024 * 1024 # 5MB
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
 
-# Ensure directory exists (can also be done in main.py startup, but safe here too)
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@router.post("/upload", response_model=schemas.APIResponse[dict])
+@router.post("/upload", response_model=schemas.APIResponse[dict], dependencies=[Depends(require_unlocked_vault)])
 async def upload_photos(files: List[UploadFile] = File(...)):
-    saved_paths = []
-    
-    for file in files:
-        # Validate Type
-        if file.content_type not in ALLOWED_TYPES:
-             return {"success": False, "error": {"message": f"Invalid file type: {file.filename}. Only JPG, PNG, WEBP allowed."}}
+    """Upload and encrypt photos"""
+    try:
+        vault_svc = get_vault_service()
+        saved_ids = []
         
-        # Validate Size (Checking content-length header is unreliable, but reading chunks is expensive for denial checking. 
-        # For local app, simple seek/tell or reading is okay).
-        # file.spool_max_size is default. Let's read and check size.
-        # Efficient way: seek to end, tell position.
-        file.file.seek(0, 2)
-        size = file.file.tell()
-        file.file.seek(0)
-        
-        if size > MAX_FILE_SIZE:
-             return {"success": False, "error": {"message": f"File too large: {file.filename}. Max 5MB."}}
-        
-        # Generate Unique Name
-        ext = file.filename.split(".")[-1].lower()
-        if ext == "jpeg": ext = "jpg"
-        new_filename = f"{uuid.uuid4()}.{ext}"
-        file_path = os.path.join(UPLOAD_DIR, new_filename)
-        
-        # Save
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        for file in files:
+            # Validate Type
+            if file.content_type not in ALLOWED_TYPES:
+                return schemas.APIResponse(
+                    success=False,
+                    error={"message": f"Invalid file type: {file.filename}. Only JPG, PNG, WEBP allowed."}
+                )
             
-        # Store relative path for portability (or absolute? Requirement says "backend/storage/..." example)
-        # "storage/photos/a.jpg" is cleaner relative path.
-        # But our UPLOAD_DIR is "backend/storage/photos". 
-        # If running from project root "MyLife", correct.
-        # Let's return "storage/photos/{filename}" assuming frontend/backend serve from root or static mount.
-        # Actually requirement example: "storage/photos/a.jpg". 
-        # Our UPLOAD_DIR construction "backend/storage/photos" implies backend is inside root.
-        # Let's stick to the relative path suitable for DB.
+            # Validate Size
+            file.file.seek(0, 2)
+            size = file.file.tell()
+            file.file.seek(0)
+            
+            if size > MAX_FILE_SIZE:
+                return schemas.APIResponse(
+                    success=False,
+                    error={"message": f"File too large: {file.filename}. Max 5MB."}
+                )
+            
+            # Read file data
+            file_data = await file.read()
+            
+            # Encrypt
+            encrypted_data = vault_svc.encrypt_file(file_data)
+            
+            # Generate photo ID
+            photo_id = str(uuid.uuid4())
+            
+            # Save encrypted
+            photo_path = vault_svc.get_encrypted_photo_path(photo_id)
+            photo_path.write_bytes(encrypted_data)
+            
+            saved_ids.append(photo_id)
         
-        # If we save in "backend/storage/photos", relative from "backend" is "storage/photos".
-        # But if we run from root, we need to be careful.
-        # Let's save consistent path: "storage/photos/{filename}" and ensure it maps to "backend/storage/photos" on disk.
+        return schemas.APIResponse(
+            success=True,
+            data={"photo_ids": saved_ids}
+        )
         
-        saved_paths.append(f"storage/photos/{new_filename}")
+    except Exception as e:
+        return schemas.APIResponse(
+            success=False,
+            error={"message": "Upload failed", "details": str(e)}
+        )
 
-    return {"success": True, "data": {"paths": saved_paths}}
+
+@router.get("/photo/{photo_id}", dependencies=[Depends(require_unlocked_vault)])
+async def get_photo(photo_id: str):
+    """Get decrypted photo"""
+    try:
+        vault_svc = get_vault_service()
+        
+        # Get encrypted photo path
+        photo_path = vault_svc.get_encrypted_photo_path(photo_id)
+        
+        if not photo_path.exists():
+            raise HTTPException(status_code=404, detail="Photo not found")
+        
+        # Read encrypted data
+        encrypted_data = photo_path.read_bytes()
+        
+        # Decrypt
+        decrypted_data = vault_svc.decrypt_file(encrypted_data)
+        
+        # Determine content type (simple heuristic)
+        if decrypted_data[:4] == b'\xff\xd8\xff\xe0' or decrypted_data[:4] == b'\xff\xd8\xff\xe1':
+            content_type = "image/jpeg"
+        elif decrypted_data[:8] == b'\x89PNG\r\n\x1a\n':
+            content_type = "image/png"
+        elif decrypted_data[:4] == b'RIFF':
+            content_type = "image/webp"
+        else:
+            content_type = "application/octet-stream"
+        
+        return Response(content=decrypted_data, media_type=content_type)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve photo: {str(e)}")

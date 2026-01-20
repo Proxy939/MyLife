@@ -1,42 +1,45 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import memories, recap, settings, media, ai, backup, system
-from .database import engine, Base, SessionLocal
-from .config import settings as app_settings
-from . import crud, models
-from .services.vector_store import vector_store
+from .routers import memories, recap, settings, media, ai, backup, system, vault
+from .database import Base
+from .config import APP_DATA_DIR
+from . import models
+from .services.vault_service import get_vault_service
 from .services.scheduler import start_scheduler, shutdown_scheduler
-import os
+import logging
 
-# Create tables
-Base.metadata.create_all(bind=engine)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-app = FastAPI(title=app_settings.APP_NAME)
+app = FastAPI(title="MyLife")
+
 
 @app.on_event("startup")
 def startup_event():
-    db = SessionLocal()
+    """Startup - vault-aware, never crashes"""
     try:
-        # Ensure AppSettings exists
-        crud.get_settings(db)
+        # Ensure dirs exist
+        (APP_DATA_DIR / 'vault' / 'photos').mkdir(parents=True, exist_ok=True)
+        (APP_DATA_DIR / 'runtime').mkdir(parents=True, exist_ok=True)
+        (APP_DATA_DIR / 'vault' / 'backups').mkdir(parents=True, exist_ok=True)
+        (APP_DATA_DIR / 'logs').mkdir(parents=True, exist_ok=True)
         
-        # Initialize Embeddings (Offline AI)
-        all_memories = db.query(models.Memory).all()
-        vector_store.initialize(all_memories)
+        # Initialize vault service
+        vault_svc = get_vault_service()
+        logger.info(f"Vault exists: {vault_svc.vault_exists()}")
         
-    finally:
-        db.close()
-    
-    # Ensure Storage Dirs
-    os.makedirs("backend/storage/photos", exist_ok=True)
-    os.makedirs("backend/storage/backups_tmp", exist_ok=True)
+        # Start scheduler
+        start_scheduler()
+        logger.info("MyLife backend started successfully")
+        
+    except Exception as e:
+        logger.error(f"Startup error (non-fatal): {e}")
 
-    # Start Scheduler
-    start_scheduler()
 
 @app.on_event("shutdown")
 def shutdown_event():
     shutdown_scheduler()
+
 
 # CORS
 app.add_middleware(
@@ -47,7 +50,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Health check - always works
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 # Routers
+app.include_router(vault.router)
 app.include_router(memories.router)
 app.include_router(recap.router)
 app.include_router(settings.router)
@@ -55,7 +64,3 @@ app.include_router(media.router)
 app.include_router(ai.router)
 app.include_router(backup.router)
 app.include_router(system.router)
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}

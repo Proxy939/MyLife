@@ -4,8 +4,9 @@ from typing import List, Optional
 from datetime import datetime
 from .. import crud, models, schemas
 from ..database import SessionLocal
+from ..middleware.vault_middleware import require_unlocked_vault
 
-router = APIRouter(prefix="/memories", tags=["memories"])
+router = APIRouter(prefix="/memories", tags=["memories"], dependencies=[Depends(require_unlocked_vault)])
 
 # Dependency
 def get_db():

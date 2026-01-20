@@ -14,6 +14,9 @@ import SystemStatus from './pages/SystemStatus';
 import Notifications from './pages/Notifications';
 import Updates from './pages/Updates';
 import TerminalLogin from './pages/TerminalLogin';
+import VaultSetup from './pages/VaultSetup';
+import VaultUnlock from './pages/VaultUnlock';
+import VaultRecovery from './pages/VaultRecovery';
 import { useState, useEffect } from 'react';
 import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -35,6 +38,30 @@ function AppContent() {
     const [isLocked, setIsLocked] = useState(false);
     const [lockChecked, setLockChecked] = useState(false);
 
+    // Vault state
+    const [vaultStatus, setVaultStatus] = useState(null);
+    const [vaultChecked, setVaultChecked] = useState(false);
+
+    // Check vault status on mount
+    useEffect(() => {
+        const checkVault = async () => {
+            try {
+                const res = await fetch('http://127.0.0.1:8000/vault/status');
+                const data = await res.json();
+
+                if (data.success) {
+                    setVaultStatus(data.data);
+                }
+            } catch (err) {
+                console.error('Failed to check vault status', err);
+            } finally {
+                setVaultChecked(true);
+            }
+        };
+
+        checkVault();
+    }, []);
+
     useEffect(() => {
         const enabled = localStorage.getItem('mylife_app_lock_enabled') === 'true';
         const sessionUnlocked = sessionStorage.getItem('mylife_session_unlocked');
@@ -54,8 +81,38 @@ function AppContent() {
         setIsLocked(false);
     };
 
-    if (!lockChecked) return null;
+    // Wait for both checks
+    if (!lockChecked || !vaultChecked) {
+        return <LoadingSplash retryCount={0} />;
+    }
 
+    // Vault routing priority
+    if (vaultStatus) {
+        // Vault unavailable - show recovery
+        if (vaultStatus.state === 'UNAVAILABLE') {
+            return <VaultRecovery />;
+        }
+
+        // No vault - setup required
+        if (!vaultStatus.vault_exists) {
+            return (
+                <Routes>
+                    <Route path="*" element={<VaultSetup />} />
+                </Routes>
+            );
+        }
+
+        // Vault locked - unlock required
+        if (!vaultStatus.is_unlocked && vaultStatus.state === 'LOCKED') {
+            return (
+                <Routes>
+                    <Route path="*" element={<VaultUnlock />} />
+                </Routes>
+            );
+        }
+    }
+
+    // Normal app flow
     return (
         <Routes>
             <Route path="/lock" element={
@@ -105,41 +162,34 @@ function LoadingSplash({ retryCount }) {
 }
 
 function App() {
-    const [terminalUnlocked, setTerminalUnlocked] = useState(() => {
-        return sessionStorage.getItem('mylife_terminal_unlocked') === 'true';
-    });
+    const [terminalUnlocked, setTerminalUnlocked] = useState(false);
     const [backendReady, setBackendReady] = useState(false);
     const [retry, setRetry] = useState(0);
 
     useEffect(() => {
+        const unlocked = sessionStorage.getItem('mylife_terminal_unlocked') === 'true';
+        setTerminalUnlocked(unlocked);
+    }, []);
+
+    useEffect(() => {
         if (!terminalUnlocked) return;
 
-        console.log('🔍 Starting backend health check...');
-
-        // Health Check Loop
         const checkHealth = async () => {
             try {
                 const url = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-                console.log(`📡 Checking health: ${url}/health`);
-
                 const res = await fetch(`${url}/health`, {
                     method: 'GET',
                     cache: 'no-cache'
                 });
 
                 if (res.ok) {
-                    const data = await res.json();
-                    console.log('✅ Backend is ready:', data);
                     setBackendReady(true);
                     return;
-                } else {
-                    console.warn(`⚠️ Health check failed with status: ${res.status}`);
                 }
             } catch (e) {
-                console.warn(`❌ Health check error (retry ${retry}):`, e.message);
+                console.warn(`Health check failed (retry ${retry}):`, e.message);
             }
 
-            // Retry after 1 second
             setTimeout(() => {
                 setRetry(r => r + 1);
             }, 1000);
@@ -153,23 +203,21 @@ function App() {
         setTerminalUnlocked(true);
     };
 
-    // Show terminal login first
     if (!terminalUnlocked) {
         return <TerminalLogin onUnlock={handleTerminalUnlock} />;
     }
 
-    // Then check backend
     if (!backendReady) {
         return <LoadingSplash retryCount={retry} />;
     }
 
     return (
         <ThemeProvider>
-            <Router>
-                <NotificationProvider>
+            <NotificationProvider>
+                <Router>
                     <AppContent />
-                </NotificationProvider>
-            </Router>
+                </Router>
+            </NotificationProvider>
         </ThemeProvider>
     );
 }

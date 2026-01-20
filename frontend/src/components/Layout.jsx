@@ -103,21 +103,9 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
                         <Link to="/updates" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/updates')}`}>
                             <Download size={18} /> Updates
                         </Link>
-                        <button
-                            onClick={async () => {
-                                if (confirm('Lock vault? You will need to unlock it again.')) {
-                                    try {
-                                        await fetch('http://127.0.0.1:8000/vault/lock', { method: 'POST' });
-                                        window.location.href = '/';
-                                    } catch (err) {
-                                        alert('Failed to lock vault');
-                                    }
-                                }
-                            }}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-os-hover text-orange-400 hover:text-orange-300"
-                        >
-                            <Lock size={18} /> Lock Vault
-                        </button>
+                        <Link to="/diagnostics" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/diagnostics')}`}>
+                            <Activity size={18} /> Diagnostics
+                        </Link>
                         <Link to="/import" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/import')}`}>
                             <Upload size={18} /> Import
                         </Link>

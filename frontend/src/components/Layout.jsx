@@ -155,6 +155,9 @@ export default function Layout({ children, onMonthChange, selectedMonth, rightPa
                         <Link to="/system" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/system')}`}>
                             <Server size={18} /> System Status
                         </Link>
+                        <Link to="/diagnostics" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/diagnostics')}`}>
+                            <Activity size={18} /> Diagnostics
+                        </Link>
                         <Link to="/settings" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/settings')}`}>
                             <Settings size={18} /> Configuration
                         </Link>

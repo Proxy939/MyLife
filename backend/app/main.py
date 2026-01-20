@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import memories, recap, settings, media, ai, backup, system, vault, sync, journal, import_data, cleanup, search, trash, versions, goals, ai_coach, reports
+from fastapi.responses import JSONResponse
+from .routers import memories, recap, settings, media, ai, backup, system, vault, sync, journal, import_data, cleanup, search, trash, versions, goals, ai_coach, reports, diagnostics
 from .database import Base
 from .config import APP_DATA_DIR
 from . import models
@@ -50,6 +51,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all unhandled exceptions"""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "success": False,
+            "data": None,
+            "error": {
+                "message": "Internal server error",
+                "details": str(exc)
+            }
+        }
+    )
+
+
 # Health check - always works
 @app.get("/health")
 def health():
@@ -67,6 +88,7 @@ app.include_router(versions.router)
 app.include_router(goals.router)
 app.include_router(ai_coach.router)
 app.include_router(reports.router)
+app.include_router(diagnostics.router)
 app.include_router(memories.router)
 app.include_router(recap.router)
 app.include_router(settings.router)

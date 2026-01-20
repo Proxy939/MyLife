@@ -1,274 +1,162 @@
-# MyLife Release Process
+# MyLife v1.0 Release Guide
 
-## 🔑 Step 1: Generate Updater Keys (One-Time Setup)
+## Prerequisites
+- Python 3.10+
+- Node.js 18+
+- PowerShell (Windows)
 
-```powershell
-cd frontend
-npm run tauri signer generate -- -w updater-keys.json
-```
+## Backend Build
 
-This creates `frontend/updater-keys.json`:
-```json
-{
-  "pubkey": "dW50cnVzdGVkIGNvbW1lbnQN...",
-  "privkey": "LS0tLS1CRUdJTiBQUklWQVRF..."
-}
-```
-
-**⚠️ IMPORTANT:**
-- Copy the `pubkey` value to `src-tauri/tauri.conf.json` → `tauri.updater.pubkey`
-- **NEVER** commit `updater-keys.json` to git (it's in `.gitignore`)
-- Store `privkey` securely (e.g., GitHub Secrets for CI/CD)
-
----
-
-## 📝 Step 2: Update Version
-
-Update version in **3 places** (must match):
-
-1. `frontend/src-tauri/tauri.conf.json`:
-   ```json
-   "package": {
-     "version": "0.2.0"
-   }
-   ```
-
-2. `frontend/src-tauri/Cargo.toml`:
-   ```toml
-   [package]
-   version = "0.2.0"
-   ```
-
-3. Git tag (created in Step 4)
-
----
-
-## 🏗️ Step 3: Build Release
-
-### Build Backend Executable
+### 1. Install Dependencies
 ```powershell
 cd backend
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+### 2. Build Executable
+```powershell
+# Install PyInstaller
 pip install pyinstaller
-pyinstaller mylife-backend.spec
 
-# Copy to Tauri resources
-Copy-Item dist\mylife-backend.exe ..\frontend\src-tauri\resources\
+# Build backend executable
+pyinstaller --name mylife-backend --onefile --add-data "app;app" run.py
+
+# Output: dist/mylife-backend.exe
 ```
 
-### Build Desktop App
-```powershell
-cd ..\frontend
-npm run tauri build
-```
+## Frontend Build
 
-**Output Location:**
-```
-frontend\src-tauri\target\release\bundle\msi\MyLife_0.2.0_x64_en-US.msi
-```
-
----
-
-## ✍️ Step 4: Sign the Installer
-
+### 1. Install Dependencies
 ```powershell
 cd frontend
-
-# Sign the .msi file
-npm run tauri signer sign `
-  src-tauri\target\release\bundle\msi\MyLife_0.2.0_x64_en-US.msi `
-  -k updater-keys.json
+npm install
 ```
 
-**Output:** Creates `MyLife_0.2.0_x64_en-US.msi.sig` in the same directory
-
----
-
-## 📦 Step 5: Create latest.json Manifest
-
-Create `latest.json` manually or use this template:
-
-```json
-{
-  "version": "0.2.0",
-  "notes": "## What's New\n- New feature 1\n- Bug fix 2\n- Performance improvements",
-  "pub_date": "2026-01-20T00:00:00Z",
-  "platforms": {
-    "windows-x86_64": {
-      "signature": "PASTE_SIGNATURE_FROM_.sig_FILE_HERE",
-      "url": "https://github.com/YOUR_USERNAME/MyLife/releases/download/v0.2.0/MyLife_0.2.0_x64_en-US.msi"
-    }
-  }
-}
-```
-
-**To get signature:**
+### 2. Build Production Bundle
 ```powershell
-Get-Content src-tauri\target\release\bundle\msi\MyLife_0.2.0_x64_en-US.msi.sig
+npm run build
+
+# Output: dist/
 ```
 
----
+## Desktop App Build (Tauri)
 
-## 🚀 Step 6: Create GitHub Release
-
-### Via GitHub CLI (Recommended)
+### 1. Install Tauri CLI
 ```powershell
-# Tag the release
-git tag v0.2.0
-git push origin v0.2.0
-
-# Create GitHub release
-gh release create v0.2.0 `
-  --title "MyLife v0.2.0" `
-  --notes "Release notes here" `
-  frontend\src-tauri\target\release\bundle\msi\MyLife_0.2.0_x64_en-US.msi `
-  frontend\src-tauri\target\release\bundle\msi\MyLife_0.2.0_x64_en-US.msi.sig `
-  latest.json
+cd frontend
+npm install --save-dev @tauri-apps/cli
 ```
 
-### Via GitHub Web UI
-1. Go to: https://github.com/YOUR_USERNAME/MyLife/releases/new
-2. Tag: `v0.2.0`
-3. Title: `MyLife v0.2.0`
-4. Description: Release notes
-5. Upload files:
-   - `MyLife_0.2.0_x64_en-US.msi`
-   - `MyLife_0.2.0_x64_en-US.msi.sig`
-   - `latest.json`
-6. Click "Publish release"
+### 2. Configure Tauri
+Create `src-tauri/tauri.conf.json`:
+- Set app name, version
+- Configure backend executable path
+- Set window properties
 
----
-
-## ✅ Step 7: Update Tauri Config
-
-Update `frontend/src-tauri/tauri.conf.json`:
-
-```json
-"updater": {
-  "active": true,
-  "endpoints": [
-    "https://github.com/YOUR_USERNAME/MyLife/releases/latest/download/latest.json"
-  ],
-  "dialog": false,
-  "pubkey": "YOUR_PUBLIC_KEY_FROM_STEP_1"
-}
-```
-
-Replace:
-- `YOUR_USERNAME` with your GitHub username
-- `YOUR_PUBLIC_KEY_FROM_STEP_1` with the pubkey from `updater-keys.json`
-
----
-
-## 🧪 Step 8: Test the Updater
-
-### Local Testing
-
-1. Install the **old version** (e.g., v0.1.0)
-2. Build a **new version** (e.g., v0.2.0) and publish to GitHub
-3. Open the installed app
-4. Go to **Settings → Updates**
-5. Click "Check for Updates"
-6. Should show: "Update available: v0.2.0"
-7. Click "Download & Install"
-8. App should download, install, and restart
-
-### Staging Testing
-
-For pre-release testing, use a draft GitHub release or a separate test repository.
-
----
-
-## 🔄 Complete Build Script
-
-Save as `release.ps1`:
-
+### 3. Build Desktop App
 ```powershell
-param(
-    [Parameter(Mandatory=$true)]
-    [string]$Version
-)
-
-Write-Host "🚀 Building MyLife v$Version" -ForegroundColor Cyan
-
-# Step 1: Update versions
-Write-Host "`n📝 Updating version numbers..." -ForegroundColor Yellow
-# (Add version update automation here)
-
-# Step 2: Build backend
-Write-Host "`n🏗️ Building backend..." -ForegroundColor Yellow
-cd backend
-pyinstaller mylife-backend.spec
-Copy-Item dist\mylife-backend.exe ..\frontend\src-tauri\resources\
-
-# Step 3: Build desktop
-Write-Host "`n🖥️ Building desktop app..." -ForegroundColor Yellow
-cd ..\frontend
 npm run tauri build
 
-# Step 4: Sign installer
-Write-Host "`n✍️ Signing installer..." -ForegroundColor Yellow
-$msiPath = "src-tauri\target\release\bundle\msi\MyLife_${Version}_x64_en-US.msi"
-npm run tauri signer sign $msiPath -k updater-keys.json
-
-Write-Host "`n✅ Build complete!" -ForegroundColor Green
-Write-Host "`nRelease artifacts:" -ForegroundColor Cyan
-Write-Host "  - $msiPath" -ForegroundColor White
-Write-Host "  - $msiPath.sig" -ForegroundColor White
-Write-Host "`nNext steps:" -ForegroundColor Cyan
-Write-Host "  1. Create latest.json" -ForegroundColor White
-Write-Host "  2. Create GitHub release: gh release create v$Version" -ForegroundColor White
+# Output: src-tauri/target/release/bundle/
 ```
 
-Usage:
+## Installer Creation
+
+### Windows (NSIS)
 ```powershell
-.\release.ps1 -Version "0.2.0"
+# Tauri automatically creates MSI installer
+# Find in: src-tauri/target/release/bundle/msi/
 ```
 
----
+### Manual ZIP Distribution
+```powershell
+# Create dist folder
+New-Item -ItemType Directory -Force -Path dist
 
-## 📋 Checklist
+# Copy backend
+Copy-Item backend/dist/mylife-backend.exe dist/
 
-Before releasing:
+# Copy frontend build
+Copy-Item -Recurse frontend/dist/* dist/web/
 
-- [ ] Updated version in `tauri.conf.json`
-- [ ] Updated version in `Cargo.toml`
-- [ ] Built backend exe
-- [ ] Built desktop app
-- [ ] Signed installer (.sig file created)
-- [ ] Created `latest.json` with correct signature
-- [ ] Tested build locally
-- [ ] Created Git tag (`v0.X.X`)
-- [ ] Published GitHub release with all 3 files
-- [ ] Tested updater on old version
-- [ ] Updated README/CHANGELOG
+# Create ZIP
+Compress-Archive -Path dist/* -DestinationPath MyLife-v1.0.0-Windows.zip
+```
 
----
+## Testing Release Build
 
-## 🐛 Troubleshooting
+### 1. Test Backend
+```powershell
+.\dist\mylife-backend.exe
+# Should start on http://127.0.0.1:8000
+```
 
-### "Invalid signature" error
-- Ensure pubkey in `tauri.conf.json` matches the one used to sign
-- Verify `.sig` file is uploaded to GitHub releases
-- Check signature in `latest.json` matches `.sig` file content
+### 2. Test Frontend
+```powershell
+cd frontend/dist
+# Serve with any static server
+npx serve
+```
 
-### "No update available"
-- Verify GitHub release is published (not draft)
-- Check URL in `tauri.conf.json` is correct
-- Ensure version in `latest.json` > installed version
-- Clear app cache and try again
+### 3. End-to-End Test
+- Create vault
+- Add memories
+- Test sync
+- Test backup/restore
 
-### Updater not working
-- Ensure `"updater"` feature is in `Cargo.toml`
-- Verify `updater.active: true` in `tauri.conf.json`
-- Check browser/network logs for download errors
-- Test with `--log-level=trace` for Tauri debugging
+## Publishing
 
----
+### GitHub Release
+1. Create Git tag: `git tag v1.0.0`
+2. Push tag: `git push origin v1.0.0`
+3. Create GitHub Release
+4. Upload `MyLife-v1.0.0-Windows.zip`
 
-## 🔒 Security Notes
+### Installer Distribution
+- Upload MSI to release assets
+- Provide installation instructions
+- Include .env.example files
 
-- Private key must NEVER be committed to repository
-- Use GitHub Secrets for CI/CD workflows
-- Always use HTTPS for update endpoints
-- Signature verification prevents tampered updates
-- Users should only download from official GitHub releases
+## Post-Release Checklist
+
+- [ ] Verify app version in UI
+- [ ] Test clean install
+- [ ] Test vault lock/unlock
+- [ ] Test all major features
+- [ ] Verify error handling
+- [ ] Check diagnostics page
+- [ ] Test Google Drive sync
+- [ ] Verify data encryption
+
+## Troubleshooting
+
+### Backend Won't Start
+- Check Python version
+- Verify all dependencies installed
+- Check port 8000 available
+
+### Frontend Build Fails
+- Clear `node_modules` and reinstall
+- Check Node version
+- Run `npm run build` with `--verbose`
+
+### Tauri Build Issues
+- Install Rust toolchain
+- Update Tauri CLI
+- Check system requirements
+
+## Version Bumping
+
+Update version in:
+1. `backend/app/config.py` - `APP_VERSION`
+2. `frontend/package.json` - `version`
+3. `src-tauri/tauri.conf.json` - `version`
+
+## Support
+
+For issues, check:
+- Diagnostics page: `/diagnostics`
+- Export diagnostics report
+- Review error logs

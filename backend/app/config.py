@@ -2,6 +2,10 @@ import os
 import sys
 from pathlib import Path
 
+# Application Version
+APP_VERSION = "1.0.0"
+APP_NAME = "MyLife"
+
 # Determine if running as PyInstaller bundle
 IS_BUNDLED = getattr(sys, 'frozen', False)
 

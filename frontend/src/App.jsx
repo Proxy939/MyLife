@@ -24,13 +24,16 @@ import Coach from './pages/Coach';
 import GoalsDashboard from './pages/GoalsDashboard';
 import ReportsDashboard from './pages/ReportsDashboard';
 import SyncPage from './pages/SyncPage';
+import DiagnosticsPage from './pages/DiagnosticsPage';
 import TerminalLogin from './pages/TerminalLogin';
 import VaultSetup from './pages/VaultSetup';
 import VaultUnlock from './pages/VaultUnlock';
 import VaultRecovery from './pages/VaultRecovery';
 import { useState, useEffect } from 'react';
 import { NotificationProvider } from './context/NotificationContext';
+import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
+import CommandPalette from './components/CommandPalette';
 import { api } from './api/client';
 import { Loader2 } from 'lucide-react';
 import { getEnabledPlugins } from './plugins/registry';
@@ -156,6 +159,7 @@ function AppContent() {
                             <Route path="/goals" element={<GoalsDashboard />} />
                             <Route path="/reports" element={<ReportsDashboard />} />
                             <Route path="/sync" element={<SyncPage />} />
+                            <Route path="/diagnostics" element={<DiagnosticsPage />} />
 
                             {/* Dynamic Plugin Routes */}
                             {getEnabledPlugins().map(plugin => (
